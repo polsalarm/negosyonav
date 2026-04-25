@@ -14,6 +14,8 @@ import Places from "./pages/Places";
 import Calendar from "./pages/Calendar";
 import Planner from "./pages/Planner";
 import Login from "./pages/Login";
+import { AuthProvider } from "./contexts/AuthContext";
+import RequireAuth from "./components/RequireAuth";
 import {
   MessageCircle, Map, Users, User, FileText, Award, MapPin, CalendarDays,
 } from "lucide-react";
@@ -21,18 +23,24 @@ import {
 function Router() {
   return (
     <Switch>
-      <Route path={"/"} component={Home} />
-      <Route path={"/roadmap"} component={Roadmap} />
-      <Route path={"/hub"} component={Hub} />
-      <Route path={"/profile"} component={Profile} />
-      <Route path={"/forms"} component={Forms} />
-      <Route path={"/grants"} component={Grants} />
-      <Route path={"/places"} component={Places} />
-      <Route path={"/calendar"} component={Calendar} />
-      <Route path={"/planner"} component={Planner} />
-      <Route path={"/login"} component={Login} />
-      <Route path={"/404"} component={NotFound} />
-      <Route component={NotFound} />
+      <Route path="/login" component={Login} />
+      <Route path="/404" component={NotFound} />
+      <Route>
+        <RequireAuth>
+          <Switch>
+            <Route path={"/"} component={Home} />
+            <Route path={"/roadmap"} component={Roadmap} />
+            <Route path={"/hub"} component={Hub} />
+            <Route path={"/profile"} component={Profile} />
+            <Route path={"/forms"} component={Forms} />
+            <Route path={"/grants"} component={Grants} />
+            <Route path={"/places"} component={Places} />
+            <Route path={"/calendar"} component={Calendar} />
+            <Route path={"/planner"} component={Planner} />
+            <Route component={NotFound} />
+          </Switch>
+        </RequireAuth>
+      </Route>
     </Switch>
   );
 }
@@ -81,11 +89,13 @@ function App() {
   return (
     <ErrorBoundary>
       <ThemeProvider defaultTheme="light">
-        <TooltipProvider>
-          <Toaster />
-          <Router />
-          <BottomNav />
-        </TooltipProvider>
+        <AuthProvider>
+          <TooltipProvider>
+            <Toaster />
+            <Router />
+            <BottomNav />
+          </TooltipProvider>
+        </AuthProvider>
       </ThemeProvider>
     </ErrorBoundary>
   );
