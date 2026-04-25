@@ -91,8 +91,12 @@ export default function Login() {
       >
         {/* Logo / Header */}
         <div className="text-center mb-8">
-          <div className="w-16 h-16 bg-teal rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
-            <span className="text-white font-[var(--font-display)] text-2xl font-bold">N</span>
+          <div className="w-16 h-16 mx-auto mb-4 drop-shadow-md">
+            <img
+              src="/LOGO.svg"
+              alt="Logo"
+              className="w-20 h-20 object-contain"
+            />
           </div>
           <h1 className="font-[var(--font-display)] text-2xl text-earth-brown">NegosyoNav</h1>
           <p className="text-sm text-muted-foreground mt-1">

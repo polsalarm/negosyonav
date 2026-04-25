@@ -128,7 +128,7 @@ function draftKey(uid: string | null | undefined): string | null {
 }
 
 const inputClass =
-  "w-full px-3 py-3 min-h-11 rounded-xl bg-muted border border-border text-base focus:outline-none focus:ring-2 focus:ring-teal/40 font-[var(--font-body)] disabled:opacity-50 disabled:cursor-not-allowed";
+  "w-full px-3 py-2.5 min-h-10 rounded-xl bg-muted border border-border text-sm focus:outline-none focus:ring-2 focus:ring-teal/40 font-[var(--font-body)] disabled:opacity-50 disabled:cursor-not-allowed";
 
 function Field({
   label, required, hint, children,

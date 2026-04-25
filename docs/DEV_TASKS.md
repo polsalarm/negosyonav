@@ -169,6 +169,20 @@ Depends on Track B for the source-of-truth date. If B ships first this is a one-
 
 Web Speech API (`SpeechRecognition`, `lang="fil-PH"` with `en-PH` fallback). Mic button toggle. Single-file; will not collide with anything.
 
+### Track R — UI Design System Refactor — ✅ done 2026-04-25
+**Owner files:** `client/index.html`, `client/src/index.css`, `client/src/App.tsx`, `client/src/pages/Home.tsx`, `client/src/pages/Roadmap.tsx`, `client/src/pages/Forms.tsx`, `client/src/pages/Hub.tsx`, `client/src/pages/Grants.tsx`.
+
+Applied Design.md ("Bayanihan Modernism") system-wide. No logic changes.
+
+- R.1 `index.html`: Replaced Archivo Black + DM Sans with Plus Jakarta Sans (weight 400–800); kept JetBrains Mono for numeric data — ✅ done 2026-04-25
+- R.2 `index.css`: Remapped `--primary` → Forest Green oklch(0.58 0.15 155), `--background` → Warm Gray oklch(0.96 0.015 88), added `--color-community` purple token (#534AB7), `--color-mango` shifted to amber (#BA7517 range); all semantic aliases preserved for existing JSX — ✅ done 2026-04-25
+- R.3 `App.tsx` BottomNav: 48dp min tap targets, pill-highlight active state with `bg-forest-light`, removed unused icon imports — ✅ done 2026-04-25
+- R.4 `Home.tsx`: 56dp input + send button, full-width roadmap CTA with ArrowRight, larger hero headline (text-3xl), `text-base` chat bubbles, Taglish suggestion chips at 44dp — ✅ done 2026-04-25
+- R.5 `Roadmap.tsx`: Bold "Kasalukuyang Hakbang" active-step banner, prominent step counter (text-lg font-mono), 56dp "Tapos na" CTA, `text-base` step titles, 48dp checklist items, Taglish section labels — ✅ done 2026-04-25; further refreshed 2026-04-26: numbered timeline dots with step number, active/complete status banners, step progress track (5 segment bar), divided expanded sections, icon-background quick-access grid, 14dp Mark Complete CTA
+- R.6 `Forms.tsx`: 56dp "I-download ang PDF" primary button, fill progress bar per card, `text-base` field values, 44dp edit/help buttons, profile status cards with Forest Green / amber — ✅ done 2026-04-25
+- R.7 `Hub.tsx`: Community purple (`bg-community`) for active category filter + "Mag-post" button + create modal CTA; 44dp vote buttons; larger post card typography (text-base titles) — ✅ done 2026-04-25; further refreshed 2026-04-26: category-colored accent strip on post cards, tinted vote section, post count in header subtitle, CTA in empty state, labeled form fields in create modal
+- R.8 `Grants.tsx`: Amber (`text-mango`, `bg-mango-light`) for eligible badges and count chip; 48dp grant card tap areas; larger typography throughout — ✅ done 2026-04-25
+
 ### Track J — Onboarding + accessibility pass
 **Owner files:** `client/src/components/Onboarding.tsx` (new), `client/src/pages/Home.tsx`, ARIA pass across all pages.
 
