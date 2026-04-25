@@ -26,7 +26,7 @@ function formatCurrency(amount: number): string {
 function StepCard({
   step, index, isCompleted, isActive, isLocked, checkedReqs,
   onToggleReq, onMarkComplete,
-  profile, everExpanded, onFirstExpand,
+  profile,
 }: {
   step: RegistrationStep;
   index: number;
@@ -37,8 +37,6 @@ function StepCard({
   onToggleReq: (key: string) => void;
   onMarkComplete: () => void;
   profile: { bizBarangay?: string | null } | null;
-  everExpanded: boolean;
-  onFirstExpand: () => void;
 }) {
   const [expanded, setExpanded] = useState(false);
 
@@ -83,11 +81,7 @@ function StepCard({
       <div className={`ml-12 mb-4 ${isLocked && !isCompleted ? "opacity-50 pointer-events-none" : ""}`}>
         <div className={`rounded-xl border ${color.border} ${isCompleted ? "opacity-70" : ""} bg-white shadow-sm overflow-hidden transition-all`}>
           {/* Card Header */}
-          <button onClick={() => {
-            const next = !expanded;
-            setExpanded(next);
-            if (next) onFirstExpand();
-          }} className="w-full text-left p-4">
+          <button onClick={() => setExpanded(!expanded)} className="w-full text-left p-4">
             <div className="flex items-start justify-between gap-3">
               <div className="flex-1">
                 <div className="flex items-center gap-2 mb-1 flex-wrap">
@@ -146,11 +140,7 @@ function StepCard({
                   </div>
 
                   {/* Office card + map (Track N) */}
-                  {everExpanded && (
-                    <div className={expanded ? "block" : "hidden"}>
-                      <StepOfficeCard step={step} profile={profile} />
-                    </div>
-                  )}
+                  <StepOfficeCard step={step} profile={profile} />
 
                   {/* ★ Inline Requirement Tasks ★ */}
                   <div>
@@ -298,7 +288,6 @@ export default function Roadmap() {
   const { data: profile } = trpc.profile.get.useQuery(undefined, {
     staleTime: 5 * 60 * 1000, // 5 min — profile rarely changes mid-session
   });
-  const [stepsEverExpanded, setStepsEverExpanded] = useState<Set<number>>(new Set());
 
   const feedbackMutation = trpc.feedback.submit.useMutation({
     onSuccess: () => { toast.success("Salamat sa feedback mo! 🙏"); setShowFeedback(false); setFeedbackMessage(""); },
@@ -397,15 +386,6 @@ export default function Roadmap() {
                 onToggleReq={toggleReq}
                 onMarkComplete={() => markStepComplete(step.step_number)}
                 profile={profile ?? null}
-                everExpanded={stepsEverExpanded.has(step.step_number)}
-                onFirstExpand={() =>
-                  setStepsEverExpanded((prev) => {
-                    if (prev.has(step.step_number)) return prev;
-                    const next = new Set(prev);
-                    next.add(step.step_number);
-                    return next;
-                  })
-                }
               />
             );
           })}
