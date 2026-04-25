@@ -7,12 +7,12 @@ dist/
 build/
 *.dist
 
-# Environment variables
-.env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
+# Environment variables (temporarily tracked for collaborators — re-add before going public)
+# .env
+# .env.local
+# .env.development.local
+# .env.test.local
+# .env.production.local
 
 # IDE and editor files
 .vscode/
@@ -112,5 +112,5 @@ temp/
 # Manus version file (auto-generated, not part of source)
 client/public/__manus__/version.json
 
-# Firebase service account — NEVER commit this
+# Firebase service account — GitHub blocks this (share directly with collaborators)
 serviceAccount.json
