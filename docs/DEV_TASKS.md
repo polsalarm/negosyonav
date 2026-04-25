@@ -36,7 +36,7 @@ User-flagged items folded into the tracks below. Priority overrides Section 5's 
 | 07 | Place finder (Maps) | Working — static office list, `Map.tsx` component, no geolocation / directions | `pages/Places.tsx`, `components/Map.tsx` |
 | 08 | Cost estimator | Working — inline in roadmap | `pages/Roadmap.tsx` + `manilaData.ts` |
 | 09 | Renewal & deadline calendar | Partial — countdowns render, no push notif, no per-user persisted dates | `pages/Calendar.tsx` |
-| — | Profile (Negosyante onboarding) | Working | `pages/Profile.tsx`, `routers.ts profile.*` |
+| — | Profile (Negosyante onboarding) | Working — UX refactored 2026-04-25 (Track Q): sticky-nav single-scroll, autosave, same-as-home, masked inputs, Taglish microcopy, Sign Out → 3-dot menu | `pages/Profile.tsx`, `routers.ts profile.*` |
 | — | Auth (Firebase email/pw) | Working | `pages/Login.tsx`, `_core/context.ts`, `_core/firebaseAdmin.ts` |
 | — | Form-help drawer (Taglish field-level Q&A) | Working | `components/FormHelpDrawer.tsx`, `routers.ts ai.formHelp` |
 | — | Feedback submission | Working | `routers.ts feedback.submit` |
@@ -225,6 +225,27 @@ Bridges existing `feedback.submit` (private to admins) with `community.create` (
 - O.3 Mount `StepFeedbackButton` in each step card in `Roadmap.tsx`, passing `stepNumber` + `lguId`.
 - O.4 Hub list/feed already filters by `lguTag`; add `stepNumber` filter to `community.list` so step-tagged posts surface contextually (also covered by Track E.4 — coordinate; if Track O lands first, leave Track E to add the in-roadmap rendering only).
 - O.5 Tests: assert that `feedback.submit({ shareToHub: true })` creates *both* a `feedback` doc and a `community_posts` doc.
+
+### Track Q — Profile editor UX refactor — ✅ done 2026-04-25
+**Owner files:** `client/src/pages/Profile.tsx` (single file). Backend untouched.
+
+Returning-user edit/review surface; complements Onboarding.tsx (which owns first-fill). Spec was originally a 4-step wizard; revised mid-implementation to **single-scroll + sticky section nav** because wizard hides siblings and breaks "glance all info" review use case.
+
+> Revised 2026-04-25 (a): dropped wizard steps in favor of sticky pill nav over single-scroll layout. Wizard friction wrong tool for editing existing data; Onboarding.tsx already covers first-fill wizard.
+> Revised 2026-04-25 (b): pivoted from sticky-nav single-scroll to **shadcn `Tabs`** per user override. Glanceability tradeoff acknowledged — tabs hide non-active sections, but tab labels + per-tab required-fill dot still expose progress at a glance.
+
+- Q.1 4-tab section layout (shadcn `Tabs` — Personal/Address/Business/Tax) with sticky `TabsList` + per-tab required-fill dot — ✅ done 2026-04-25
+- Q.2 localStorage draft autosave on blur (`negosyonav_profile_draft_<uid>`); final CTA persists to Firestore via existing `profile.save` and clears draft — ✅ done 2026-04-25
+- Q.3 "Pareho sa home address ko" toggle copies + locks biz address fields, auto-detected on hydrate — ✅ done 2026-04-25
+- Q.4 Field upgrades: TIN mask `000-000-000-00`, PhilSys mask `0000-0000-0000-0000`, Mobile +63 prefix, Suffix → dropdown, biz placeholders, ZIP digit-only mask — ✅ done 2026-04-25
+- Q.5 Required `*` on firstName, lastName, mobileNumber, businessName, bizBarangay (mirrors Onboarding's 5 required) — ✅ done 2026-04-25
+- Q.6 Taglish microcopy on PhilSys/Capitalization/Annual Sales; Tax "Learn more" bottom sheet (shadcn `Sheet`) — ✅ done 2026-04-25
+- Q.7 Sign Out moved from form footer into header 3-dot menu (shadcn `DropdownMenu`) — ✅ done 2026-04-25
+- Q.8 Auto-Extract banner shown only when profile empty; demoted to Sparkles icon button in header otherwise — ✅ done 2026-04-25
+- Q.9 Mobile-first audit: inputs upgraded to `text-base` (iOS no-zoom), tap targets ≥44px, single-column default with 2-col exceptions only for First+Middle and Province+ZIP — ✅ done 2026-04-25
+- Q.10 🆕 2026-04-25 — TIN spec mask is 11 digits; if Forms team needs 12-digit BIR format (`XXX-XXX-XXX-XXX`), update `formatTin` slice to `0,12` and adjust `parts` slicing.
+- Q.11 Premium motion polish via framer-motion: sliding active-tab pill (`layoutId`), tab content enter w/ blur+y spring, AnimatePresence on autosave status + Save button label, spring scale-pop on save success, scale-in completion dots, `useReducedMotion` respected throughout — ✅ done 2026-04-25
+- Q.12 CTA simplified: label `Save Profile & Enable Auto-fill` → `Save Profile` (autofill is the saved profile's effect, not a separate toggle). Dirty-state gating via `serverSnapshot` JSON-diff — button disabled w/ `No changes` label when profile matches server; flips to `Save Profile` on first edit; resets to clean after save success. — ✅ done 2026-04-25
 
 ### Track P — Hub like-button bugfix — **LOW**
 **Owner files:** `client/src/pages/Hub.tsx`, optionally `server/routers/community.ts` + a one-time `server/scripts/seedHubPosts.ts`.
