@@ -44,6 +44,16 @@ type DirectionsState =
 // OfficeMapCard instances in a session.
 let cachedOrigin: google.maps.LatLngLiteral | null = null;
 
+function originKey(origin: google.maps.LatLngLiteral | string): string {
+  if (typeof origin === "string") return `s:${origin.toLowerCase().trim()}`;
+  // Round to ~10m precision so trivial geo jitter doesn't blow the cache.
+  return `c:${origin.lat.toFixed(4)},${origin.lng.toFixed(4)}`;
+}
+
+function cacheKey(origin: google.maps.LatLngLiteral | string, mode: TravelMode): string {
+  return `${mode}|${originKey(origin)}`;
+}
+
 export interface OfficeLike {
   id?: string;
   rdo_code?: string;
@@ -67,7 +77,7 @@ export function OfficeMapCard({ office }: OfficeMapCardProps) {
   const markerRef = useRef<google.maps.marker.AdvancedMarkerElement | null>(null);
   const rendererRef = useRef<google.maps.DirectionsRenderer | null>(null);
   const rendererInitRef = useRef<Promise<google.maps.DirectionsRenderer> | null>(null);
-  const resultsCacheRef = useRef<Map<TravelMode, google.maps.DirectionsResult>>(
+  const resultsCacheRef = useRef<Map<string, google.maps.DirectionsResult>>(
     new Map(),
   );
 
@@ -139,7 +149,7 @@ export function OfficeMapCard({ office }: OfficeMapCardProps) {
   ) {
     const map = mapRef.current;
     if (!map) return;
-    const cached = resultsCacheRef.current.get(mode);
+    const cached = resultsCacheRef.current.get(cacheKey(origin, mode));
     if (cached) {
       const renderer = await ensureRenderer();
       renderer.setDirections(cached);
@@ -155,7 +165,7 @@ export function OfficeMapCard({ office }: OfficeMapCardProps) {
         destination: { lat: office.lat, lng: office.lng },
         travelMode: g.maps.TravelMode[mode],
       });
-      resultsCacheRef.current.set(mode, result);
+      resultsCacheRef.current.set(cacheKey(origin, mode), result);
       const renderer = await ensureRenderer();
       renderer.setDirections(result);
       setState({ kind: "showing_route", origin, mode, result });
