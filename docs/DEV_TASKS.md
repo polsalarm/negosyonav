@@ -29,7 +29,7 @@ User-flagged items folded into the tracks below. Priority overrides Section 5's 
 |---|---|---|---|
 | 01 | Taglish chat intake | Working | `client/src/pages/Home.tsx`, `components/AIChatBox.tsx`, `server/routers.ts ai.chat` |
 | 02 | Lakad Roadmap (location-aware) | Manila City only — hardcoded | `pages/Roadmap.tsx`, `client/src/data/manilaData.ts` |
-| 03 | Form auto-fill + "PDF" download (MVP anchor) | Partial — outputs base64 of plain text labelled `.pdf`, not real PDF | `pages/Forms.tsx`, `routers.ts forms.generatePdf` |
+| 03 | Form auto-fill + "PDF" download (MVP anchor) | Partial 2026-04-26 — Barangay Clearance fills real AcroForm template (`server/pdf/barangayClearance.ts` + `server/templates/business_clearance.pdf`); DTI + BIR use a real PDF text-fallback (`server/pdf/textFallback.ts`) until official templates land | `pages/Forms.tsx`, `routers.ts forms.generatePdf`, `server/pdf/`, `server/templates/` |
 | 04 | Grant matching (BMBE / DOLE / SB Corp) | Working — pure logic, no DB | `pages/Grants.tsx`, `routers.ts grants.check` |
 | 05 | Negosyante Hub (posts + votes) | Working — no comments, no contextual surfacing in roadmap | `pages/Hub.tsx`, `routers.ts community.*`, `db.ts` |
 | 06 | Time-based planner | Working — static logic | `pages/Planner.tsx` |
@@ -98,12 +98,14 @@ Each track lists owned files. Two devs on different tracks should not collide.
 ### Track A — Real PDF generation (MVP anchor fix) — **HIGH**
 **Owner files:** `server/routers/forms.ts`, `server/pdf/` (new), `client/src/pages/Forms.tsx`, `package.json` (add `pdf-lib`).
 
-- A.1 Add `pdf-lib` dependency.
-- A.2 Build `server/pdf/dtiForm.ts`, `barangayClearance.ts`, `bir1901.ts`. Each exports `render(fields): Promise<Uint8Array>` that draws onto a real form template (start with from-scratch layout matching the official field labels; later swap to overlay on scanned official PDF).
-- A.3 Rewrite `forms.generatePdf` to dispatch on `formId` and return `{ pdfContent: base64, contentType: "application/pdf" }`.
-- A.4 `Forms.tsx`: drop the byte-array dance, just `atob` → `Blob({ type: "application/pdf" })`. Verify download opens in a real PDF viewer.
-- A.5 Add Vitest unit tests in `server/pdf/*.test.ts` asserting valid PDF magic bytes (`%PDF-`).
-- A.6 Confirm a downloaded PDF opens in Chrome PDF viewer + Adobe Reader on a real device (current `.pdf` is plain text and fails — this is the user-reported "not working").
+- A.1 Add `pdf-lib` dependency. — ✅ done 2026-04-26
+- A.2 Build `server/pdf/dtiForm.ts`, `barangayClearance.ts`, `bir1901.ts`. Each exports `render(fields): Promise<Uint8Array>` that draws onto a real form template (start with from-scratch layout matching the official field labels; later swap to overlay on scanned official PDF). — 🟡 partial 2026-04-26: shipped `server/pdf/barangayClearance.ts` filling the official AcroForm at `server/templates/business_clearance.pdf` (text + checkbox widgets) and `server/pdf/textFallback.ts` covering DTI + BIR until their templates land.
+  > Revised 2026-04-26: when an official AcroForm exists (as for Barangay Clearance), we fill the template directly via pdf-lib instead of redrawing from scratch — exposes the schema (field name + type + group + required) to the client so the form UI matches the PDF exactly.
+- A.3 Rewrite `forms.generatePdf` to dispatch on `formId` and return `{ pdfContent: base64, contentType: "application/pdf" }`. — ✅ done 2026-04-26
+- A.4 `Forms.tsx`: drop the byte-array dance, just `atob` → `Blob({ type: "application/pdf" })`. Verify download opens in a real PDF viewer. — 🟡 partial 2026-04-26: all three forms now render through a generic `client/src/components/FormWizard.tsx` with shared styling — progress bar, sticky Back/Next, per-step validation, profile prefill, "Edit →" review screen. Step kinds: `radio` (Barangay Application Type / Form of Ownership), `fields` (text inputs with `inputMode`/`autocomplete`), `chips` (searchable chip picker for Barangay's 50+ Nature-of-Business checkboxes with conditional Services/Others specify boxes), `review`. Steps: Barangay 7, DTI 7, BIR 6. Byte-array decode kept for now (works fine with the real PDF).
+- A.5 Add Vitest unit tests in `server/pdf/*.test.ts` asserting valid PDF magic bytes (`%PDF-`). — 🟡 partial 2026-04-26: magic-byte assertions added to `server/features.test.ts forms.generatePdf` (DTI fallback, BIR fallback, Barangay AcroForm fill, plus required-fields rejection). Dedicated `server/pdf/*.test.ts` files not yet created — Track K can move them when it reorganizes.
+- A.6 Confirm a downloaded PDF opens in Chrome PDF viewer + Adobe Reader on a real device (current `.pdf` is plain text and fails — this is the user-reported "not working"). — 🟡 partial 2026-04-26: smoke test confirms `%PDF-1.7` magic + 761 KB filled output for Barangay Clearance; still needs a real-device viewer check.
+- A.7 Add AcroForm templates + renderers for DTI (FM-BN-01) and BIR 1901 once the official PDFs are sourced; mirror the Barangay pattern (template under `server/templates/`, schema array exported, generic dispatch). — 🆕 2026-04-26
 
 ### Track B — Roadmap progress persistence + step-failed nudge
 **Owner files:** `server/routers/progress.ts` (new in Track 0), `server/db.ts` (append `roadmapProgress` collection helpers), `client/src/pages/Roadmap.tsx`, `client/src/hooks/useRoadmapProgress.ts` (new).

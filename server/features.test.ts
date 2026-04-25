@@ -83,7 +83,7 @@ describe("grants.check", () => {
 });
 
 describe("forms.generatePdf", () => {
-  it("generates a base64 encoded PDF for DTI form", async () => {
+  it("generates a real PDF (text fallback) for DTI form", async () => {
     const ctx = createAuthContext();
     const caller = appRouter.createCaller(ctx);
 
@@ -99,15 +99,13 @@ describe("forms.generatePdf", () => {
 
     expect(result.pdfContent).toBeDefined();
     expect(result.formId).toBe("dti_form");
+    expect(result.contentType).toBe("application/pdf");
 
-    // Decode and verify content
-    const decoded = Buffer.from(result.pdfContent, "base64").toString("utf-8");
-    expect(decoded).toContain("DTI Business Name Registration Form");
-    expect(decoded).toContain("Juan Dela Cruz");
-    expect(decoded).toContain("Juan's Sari-Sari Store");
+    const bytes = Buffer.from(result.pdfContent, "base64");
+    expect(bytes.subarray(0, 5).toString("utf-8")).toBe("%PDF-");
   });
 
-  it("generates PDF for BIR 1901 form", async () => {
+  it("generates a real PDF for BIR 1901 form", async () => {
     const ctx = createAuthContext();
     const caller = appRouter.createCaller(ctx);
 
@@ -122,8 +120,45 @@ describe("forms.generatePdf", () => {
 
     expect(result.pdfContent).toBeDefined();
     expect(result.formId).toBe("bir_1901");
-    const decoded = Buffer.from(result.pdfContent, "base64").toString("utf-8");
-    expect(decoded).toContain("BIR Form 1901");
+    const bytes = Buffer.from(result.pdfContent, "base64");
+    expect(bytes.subarray(0, 5).toString("utf-8")).toBe("%PDF-");
+  });
+
+  it("fills the Barangay Clearance AcroForm template", async () => {
+    const ctx = createAuthContext();
+    const caller = appRouter.createCaller(ctx);
+
+    const result = await caller.forms.generatePdf({
+      formId: "barangay_clearance",
+      fields: {
+        business_name: "Aling Nena's Sari-Sari",
+        contact_person: "Juan Dela Cruz",
+        street: "Rizal Ave",
+        locale: "Barangay 123",
+        app_new: true,
+        own_sole: true,
+        nob_retailer: true,
+      },
+    });
+
+    expect(result.formId).toBe("barangay_clearance");
+    const bytes = Buffer.from(result.pdfContent, "base64");
+    expect(bytes.subarray(0, 5).toString("utf-8")).toBe("%PDF-");
+    // Template is ~700KB — anything well above the text-fallback ~2KB confirms
+    // we're returning the filled template, not a generated page.
+    expect(bytes.byteLength).toBeGreaterThan(50_000);
+  });
+
+  it("rejects barangay submission missing required fields", async () => {
+    const ctx = createAuthContext();
+    const caller = appRouter.createCaller(ctx);
+
+    await expect(
+      caller.forms.generatePdf({
+        formId: "barangay_clearance",
+        fields: { business_name: "Test" }, // no contact_person, no app_*, no own_*, no street/locale
+      }),
+    ).rejects.toThrow(/Missing required fields/);
   });
 });
 

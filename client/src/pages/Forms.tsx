@@ -1,7 +1,11 @@
 /*
  * NegosyoNav — Smart Form Auto-fill + PDF Download (Feature 03 — MVP Anchor)
- * Shows pre-populated government forms based on the user's profile.
- * User reviews, edits, and downloads print-ready PDFs.
+ * All three forms (Barangay Clearance, DTI, BIR 1901) render through the same
+ * FormWizard so styling, validation, and review behavior stay consistent.
+ *
+ * Barangay uses the live AcroForm schema from `forms.getSchema`; DTI and BIR
+ * use locally-defined schemas keyed by their PDF-renderer field names so the
+ * wizard's name → value map flows straight into pdf-lib (or the text fallback).
  */
 import { useState, useMemo } from "react";
 import { useLocation } from "wouter";
@@ -11,44 +15,46 @@ import { useAuth } from "@/_core/hooks/useAuth";
 import { getLoginUrl } from "@/const";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  ArrowLeft, FileText, Download, CheckCircle2, AlertCircle, User, Loader2,
-  ChevronDown, ChevronUp, Edit3, Eye, HelpCircle, MessageCircle,
+  ArrowLeft, FileText, CheckCircle2, AlertCircle, User, Loader2,
+  ChevronDown, ChevronUp, Edit3, MessageCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import FormHelpDrawer from "@/components/FormHelpDrawer";
+import FormWizard, { type SchemaField, type StepDef } from "@/components/FormWizard";
 import { useFormHelp } from "@/hooks/useFormHelp";
 
-interface FormField {
-  label: string;
-  value: string;
-  key: string;
-  required?: boolean;
-}
-
-interface GovernmentForm {
+type FormConfig = {
   id: string;
   title: string;
   titleTl: string;
   agency: string;
   description: string;
-  fields: FormField[];
   step: number;
-}
+  // Barangay's schema is fetched at runtime; DTI/BIR are static.
+  schemaSource: "barangay" | "static";
+  staticSchema?: SchemaField[];
+  steps: StepDef[];
+  prefill: Record<string, string | boolean>;
+};
 
 export default function Forms() {
   const [, navigate] = useLocation();
   const { isAuthenticated, loading: authLoading } = useAuth();
   const [expandedForm, setExpandedForm] = useState<string | null>(null);
-  const [editMode, setEditMode] = useState<string | null>(null);
-  const [fieldOverrides, setFieldOverrides] = useState<Record<string, string>>({});
+  // Single store for all wizard values, keyed by formId then field name.
+  const [formValues, setFormValues] = useState<Record<string, Record<string, string | boolean>>>({});
   const [activeFormName, setActiveFormName] = useState("");
   const formHelp = useFormHelp(activeFormName);
 
   const profileQuery = trpc.profile.get.useQuery(undefined, { enabled: isAuthenticated });
+  const barangaySchemaQuery = trpc.forms.getSchema.useQuery(
+    { formId: "barangay_clearance" },
+    { enabled: isAuthenticated, staleTime: Infinity },
+  );
+
   const generatePdfMutation = trpc.forms.generatePdf.useMutation({
     onSuccess: (data) => {
       if (data.pdfContent) {
-        // Decode base64 and download
         const byteChars = atob(data.pdfContent);
         const byteNumbers = new Array(byteChars.length);
         for (let i = 0; i < byteChars.length; i++) {
@@ -67,7 +73,9 @@ export default function Forms() {
         toast.success("PDF downloaded! Ready to print. 🎉");
       }
     },
-    onError: () => { toast.error("Error generating PDF. Try again."); },
+    onError: (err) => {
+      toast.error(err.message || "Error generating PDF. Try again.");
+    },
   });
 
   const p = profileQuery.data;
@@ -75,94 +83,213 @@ export default function Forms() {
   const homeAddr = p ? [p.homeBuilding, p.homeStreet, p.homeBarangay, p.homeCity, p.homeProvince, p.homeZipCode].filter(Boolean).join(", ") : "";
   const bizAddr = p ? [p.bizBuilding, p.bizStreet, p.bizBarangay, p.bizCity, p.bizProvince, p.bizZipCode].filter(Boolean).join(", ") : "";
 
-  const forms: GovernmentForm[] = useMemo(() => [
+  // ─── Barangay (AcroForm-driven) prefill ────────────────────────────────────
+  const barangayPrefill = useMemo<Record<string, string | boolean>>(() => {
+    const today = new Date().toLocaleDateString("en-PH");
+    const cap = p?.capitalization?.toString() ?? "";
+    return {
+      date_applied: today,
+      business_name: p?.businessName ?? "",
+      trade_name: p?.businessName ?? "",
+      building: p?.bizBuilding ?? "",
+      street: p?.bizStreet ?? "",
+      locale: p?.bizBarangay ?? "",
+      business_tin: p?.tin ?? "",
+      contact_person: fullName,
+      telephone_no: p?.mobileNumber ?? p?.phoneNumber ?? "",
+      email: p?.emailAddress ?? "",
+      paid_up_capital: cap,
+      capitalization: cap,
+      app_new: true,
+      own_sole: true,
+    };
+  }, [p, fullName]);
+
+  // ─── DTI (static schema) ───────────────────────────────────────────────────
+  const dtiSchema: SchemaField[] = useMemo(() => [
+    { name: "dti_name", type: "text", label: "Applicant's Full Name", group: "Personal Info", required: true },
+    { name: "dti_dob", type: "text", label: "Date of Birth", group: "Personal Info" },
+    { name: "dti_civil", type: "text", label: "Civil Status", group: "Personal Info" },
+    { name: "dti_citizen", type: "text", label: "Citizenship", group: "Personal Info" },
+    { name: "dti_tin", type: "text", label: "TIN", group: "Identification" },
+    { name: "dti_philsys", type: "text", label: "PhilSys ID", group: "Identification" },
+    { name: "dti_mobile", type: "text", label: "Mobile Number", group: "Contact" },
+    { name: "dti_email", type: "text", label: "Email Address", group: "Contact" },
+    { name: "dti_home_addr", type: "text", label: "Home Address", group: "Address" },
+    { name: "dti_bn1", type: "text", label: "Proposed Business Name (1st)", group: "Business Names", required: true },
+    { name: "dti_bn2", type: "text", label: "Proposed Business Name (2nd)", group: "Business Names" },
+    { name: "dti_bn3", type: "text", label: "Proposed Business Name (3rd)", group: "Business Names" },
+    { name: "dti_biz_addr", type: "text", label: "Business Address", group: "Business Details" },
+    { name: "dti_activity", type: "text", label: "Business Activity", group: "Business Details" },
+    { name: "dti_scope", type: "text", label: "Territorial Scope", group: "Business Details" },
+    { name: "dti_cap", type: "text", label: "Capitalization (₱)", group: "Business Details" },
+  ], []);
+
+  const dtiSteps: StepDef[] = useMemo(() => [
+    { title: "Personal Info", subtitle: "Sino ang nag-a-apply?", kind: "fields", names: ["dti_name", "dti_dob", "dti_civil", "dti_citizen"] },
+    { title: "Identification", subtitle: "Para ma-verify ka.", kind: "fields", names: ["dti_tin", "dti_philsys"] },
+    { title: "Contact", subtitle: "Paano ka makokontak?", kind: "fields", names: ["dti_mobile", "dti_email"] },
+    { title: "Address", subtitle: "Saan ka nakatira?", kind: "fields", names: ["dti_home_addr"] },
+    { title: "Business Names", subtitle: "Tatlong choices, in order of preference.", kind: "fields", names: ["dti_bn1", "dti_bn2", "dti_bn3"] },
+    { title: "Business Details", subtitle: "Tungkol sa negosyo.", kind: "fields", names: ["dti_biz_addr", "dti_activity", "dti_scope", "dti_cap"] },
+    { title: "Review & Download", kind: "review" },
+  ], []);
+
+  const dtiPrefill = useMemo<Record<string, string | boolean>>(() => ({
+    dti_name: fullName,
+    dti_dob: p?.dateOfBirth ?? "",
+    dti_civil: p?.civilStatus ?? "",
+    dti_citizen: p?.citizenship ?? "Filipino",
+    dti_tin: p?.tin ?? "",
+    dti_philsys: p?.philsysId ?? "",
+    dti_mobile: p?.mobileNumber ?? "",
+    dti_email: p?.emailAddress ?? "",
+    dti_home_addr: homeAddr,
+    dti_bn1: p?.businessName ?? "",
+    dti_bn2: p?.businessNameOption2 ?? "",
+    dti_bn3: p?.businessNameOption3 ?? "",
+    dti_biz_addr: bizAddr,
+    dti_activity: p?.businessActivity ?? "",
+    dti_scope: p?.territorialScope ?? "city",
+    dti_cap: p?.capitalization?.toString() ?? "",
+  }), [p, fullName, homeAddr, bizAddr]);
+
+  // ─── BIR 1901 (static schema) ──────────────────────────────────────────────
+  const birSchema: SchemaField[] = useMemo(() => [
+    { name: "bir_last", type: "text", label: "Taxpayer's Last Name", group: "Taxpayer Name", required: true },
+    { name: "bir_first", type: "text", label: "Taxpayer's First Name", group: "Taxpayer Name", required: true },
+    { name: "bir_middle", type: "text", label: "Taxpayer's Middle Name", group: "Taxpayer Name" },
+    { name: "bir_tin", type: "text", label: "TIN", group: "Identification" },
+    { name: "bir_dob", type: "text", label: "Date of Birth", group: "Identification" },
+    { name: "bir_civil", type: "text", label: "Civil Status", group: "Identification" },
+    { name: "bir_citizen", type: "text", label: "Citizenship", group: "Identification" },
+    { name: "bir_reg_addr", type: "text", label: "Registered Address", group: "Address" },
+    { name: "bir_zip", type: "text", label: "ZIP Code", group: "Address" },
+    { name: "bir_mobile", type: "text", label: "Mobile Number", group: "Contact" },
+    { name: "bir_email", type: "text", label: "Email Address", group: "Contact" },
+    { name: "bir_trade", type: "text", label: "Trade Name / Business Name", group: "Business", required: true },
+    { name: "bir_line", type: "text", label: "Line of Business / Occupation", group: "Business" },
+    { name: "bir_tax_type", type: "text", label: "Tax Type", group: "Business" },
+  ], []);
+
+  const birSteps: StepDef[] = useMemo(() => [
+    { title: "Taxpayer Name", subtitle: "Buong pangalan mo.", kind: "fields", names: ["bir_last", "bir_first", "bir_middle"] },
+    { title: "Identification", subtitle: "Para ma-verify ka.", kind: "fields", names: ["bir_tin", "bir_dob", "bir_civil", "bir_citizen"] },
+    { title: "Address", subtitle: "Saan ka nakarehistro?", kind: "fields", names: ["bir_reg_addr", "bir_zip"] },
+    { title: "Contact", subtitle: "Paano ka makokontak?", kind: "fields", names: ["bir_mobile", "bir_email"] },
+    { title: "Business", subtitle: "Tungkol sa negosyo.", kind: "fields", names: ["bir_trade", "bir_line", "bir_tax_type"] },
+    { title: "Review & Download", kind: "review" },
+  ], []);
+
+  const birPrefill = useMemo<Record<string, string | boolean>>(() => ({
+    bir_last: p?.lastName ?? "",
+    bir_first: p?.firstName ?? "",
+    bir_middle: p?.middleName ?? "",
+    bir_tin: p?.tin ?? "",
+    bir_dob: p?.dateOfBirth ?? "",
+    bir_civil: p?.civilStatus ?? "",
+    bir_citizen: p?.citizenship ?? "Filipino",
+    bir_reg_addr: bizAddr,
+    bir_zip: p?.bizZipCode ?? "",
+    bir_mobile: p?.mobileNumber ?? "",
+    bir_email: p?.emailAddress ?? "",
+    bir_trade: p?.businessName ?? "",
+    bir_line: p?.businessActivity ?? "",
+    bir_tax_type: p?.preferTaxOption === "eight_percent" ? "8% Gross Sales" : "Graduated Rates",
+  }), [p, bizAddr]);
+
+  // ─── Barangay step definitions (drives the wizard for the AcroForm form) ───
+  const barangaySteps: StepDef[] = useMemo(() => [
+    { title: "Application Type", subtitle: "Pumili ng isa.", kind: "radio", group: "Application Type" },
+    { title: "Business Identity", subtitle: "Ano ang pangalan ng negosyo mo?", kind: "fields", names: ["business_name", "trade_name"] },
+    { title: "Business Address", subtitle: "Saan matatagpuan ang negosyo?", kind: "fields", names: ["unit_room", "floor", "building", "street_no", "street", "locale"] },
+    { title: "Form of Ownership", subtitle: "Pumili ng isa.", kind: "radio", group: "Form of Ownership" },
     {
-      id: "dti_form",
-      title: "DTI Business Name Registration Form (FM-BN-01)",
-      titleTl: "Form ng Pagpaparehistro ng Pangalan ng Negosyo",
-      agency: "Department of Trade and Industry",
-      description: "Application form for registering your business name with DTI. This is Step 1 of the Lakad Roadmap.",
-      step: 1,
-      fields: [
-        { label: "Applicant's Full Name", value: fullName, key: "dti_name", required: true },
-        { label: "Date of Birth", value: p?.dateOfBirth || "", key: "dti_dob" },
-        { label: "Civil Status", value: p?.civilStatus || "", key: "dti_civil" },
-        { label: "Citizenship", value: p?.citizenship || "Filipino", key: "dti_citizen" },
-        { label: "TIN", value: p?.tin || "", key: "dti_tin" },
-        { label: "PhilSys ID", value: p?.philsysId || "", key: "dti_philsys" },
-        { label: "Mobile Number", value: p?.mobileNumber || "", key: "dti_mobile" },
-        { label: "Email Address", value: p?.emailAddress || "", key: "dti_email" },
-        { label: "Home Address", value: homeAddr, key: "dti_home_addr" },
-        { label: "Proposed Business Name (1st)", value: p?.businessName || "", key: "dti_bn1", required: true },
-        { label: "Proposed Business Name (2nd)", value: p?.businessNameOption2 || "", key: "dti_bn2" },
-        { label: "Proposed Business Name (3rd)", value: p?.businessNameOption3 || "", key: "dti_bn3" },
-        { label: "Business Address", value: bizAddr, key: "dti_biz_addr" },
-        { label: "Business Activity", value: p?.businessActivity || "", key: "dti_activity" },
-        { label: "Territorial Scope", value: p?.territorialScope || "city", key: "dti_scope" },
-        { label: "Capitalization (₱)", value: p?.capitalization?.toString() || "", key: "dti_cap" },
-      ],
+      title: "Nature of Business",
+      subtitle: "Tap mga services na binibigay mo. Pwede mahigit isa.",
+      kind: "chips",
+      group: "Nature of Business",
+      specifyMap: { nob_services: "nob_services_specify", nob_others: "nob_others_specify" },
     },
+    { title: "Contact + Capital", subtitle: "Paano ka makokontak?", kind: "fields", names: ["contact_person", "telephone_no", "email", "business_tin", "paid_up_capital", "capitalization", "assessed_value", "fax_no"] },
+    { title: "Review & Download", kind: "review" },
+  ], []);
+
+  const forms: FormConfig[] = useMemo(() => [
     {
       id: "barangay_clearance",
       title: "Barangay Business Clearance Application",
       titleTl: "Aplikasyon para sa Barangay Business Clearance",
       agency: "Barangay Hall",
-      description: "Application for barangay clearance. Required before applying for Mayor's Permit. Step 2 of the Lakad Roadmap.",
+      description: "Application for barangay clearance. Required before applying for Mayor's Permit. Fields below mirror the official AcroForm — what you fill is exactly what gets stamped into the PDF.",
+      step: 1,
+      schemaSource: "barangay",
+      steps: barangaySteps,
+      prefill: barangayPrefill,
+    },
+    {
+      id: "dti_form",
+      title: "DTI Business Name Registration Form (FM-BN-01)",
+      titleTl: "Form ng Pagpaparehistro ng Pangalan ng Negosyo",
+      agency: "Department of Trade and Industry",
+      description: "Application form for registering your business name with DTI.",
       step: 2,
-      fields: [
-        { label: "Owner's Full Name", value: fullName, key: "brgy_name", required: true },
-        { label: "Home Address", value: homeAddr, key: "brgy_home" },
-        { label: "Business Name", value: p?.businessName || "", key: "brgy_bn", required: true },
-        { label: "Business Address", value: bizAddr, key: "brgy_biz_addr" },
-        { label: "Business Barangay", value: p?.bizBarangay || "", key: "brgy_barangay", required: true },
-        { label: "Nature of Business", value: p?.businessActivity || "", key: "brgy_nature" },
-        { label: "DTI Certificate No.", value: "(from Step 1)", key: "brgy_dti_cert" },
-        { label: "Contact Number", value: p?.mobileNumber || "", key: "brgy_contact" },
-      ],
+      schemaSource: "static",
+      staticSchema: dtiSchema,
+      steps: dtiSteps,
+      prefill: dtiPrefill,
     },
     {
       id: "bir_1901",
       title: "BIR Form 1901 — Application for Registration",
       titleTl: "BIR Form 1901 — Aplikasyon para sa Pagpaparehistro",
       agency: "Bureau of Internal Revenue",
-      description: "Registration form for self-employed individuals and mixed income earners. Step 5 of the Lakad Roadmap.",
-      step: 5,
-      fields: [
-        { label: "Taxpayer's Last Name", value: p?.lastName || "", key: "bir_last", required: true },
-        { label: "Taxpayer's First Name", value: p?.firstName || "", key: "bir_first", required: true },
-        { label: "Taxpayer's Middle Name", value: p?.middleName || "", key: "bir_middle" },
-        { label: "TIN", value: p?.tin || "", key: "bir_tin" },
-        { label: "Date of Birth", value: p?.dateOfBirth || "", key: "bir_dob" },
-        { label: "Civil Status", value: p?.civilStatus || "", key: "bir_civil" },
-        { label: "Citizenship", value: p?.citizenship || "Filipino", key: "bir_citizen" },
-        { label: "Registered Address", value: bizAddr, key: "bir_reg_addr" },
-        { label: "ZIP Code", value: p?.bizZipCode || "", key: "bir_zip" },
-        { label: "Mobile Number", value: p?.mobileNumber || "", key: "bir_mobile" },
-        { label: "Email Address", value: p?.emailAddress || "", key: "bir_email" },
-        { label: "Trade Name / Business Name", value: p?.businessName || "", key: "bir_trade", required: true },
-        { label: "Line of Business / Occupation", value: p?.businessActivity || "", key: "bir_line" },
-        { label: "Tax Type", value: p?.preferTaxOption === "eight_percent" ? "8% Gross Sales" : "Graduated Rates", key: "bir_tax_type" },
-      ],
+      description: "Registration form for self-employed individuals and mixed income earners.",
+      step: 3,
+      schemaSource: "static",
+      staticSchema: birSchema,
+      steps: birSteps,
+      prefill: birPrefill,
     },
-  ], [p, fullName, homeAddr, bizAddr]);
+  ], [barangayPrefill, barangaySteps, dtiSchema, dtiSteps, dtiPrefill, birSchema, birSteps, birPrefill]);
 
-  const getFieldValue = (key: string, defaultValue: string) => {
-    return fieldOverrides[key] !== undefined ? fieldOverrides[key] : defaultValue;
+  const schemaFor = (form: FormConfig): SchemaField[] => {
+    if (form.schemaSource === "barangay") return barangaySchemaQuery.data?.fields ?? [];
+    return form.staticSchema ?? [];
   };
 
-  const filledCount = (form: GovernmentForm) => {
-    return form.fields.filter(f => {
-      const val = getFieldValue(f.key, f.value);
-      return val && val.trim() !== "" && val !== "(from Step 1)";
+  const getValue = (formId: string, name: string, fallback: string | boolean): string | boolean => {
+    const v = formValues[formId]?.[name];
+    return v !== undefined ? v : fallback;
+  };
+
+  const setValue = (formId: string, name: string, value: string | boolean) => {
+    setFormValues(prev => ({
+      ...prev,
+      [formId]: { ...(prev[formId] ?? {}), [name]: value },
+    }));
+  };
+
+  const filledCount = (form: FormConfig) => {
+    const schema = schemaFor(form);
+    return schema.filter(def => {
+      const fb = form.prefill[def.name] ?? (def.type === "checkbox" ? false : "");
+      const v = getValue(form.id, def.name, fb);
+      if (def.type === "checkbox") return v === true;
+      return typeof v === "string" && v.trim() !== "";
     }).length;
   };
 
-  const handleDownloadPdf = (form: GovernmentForm) => {
-    const fields: Record<string, string> = {};
-    form.fields.forEach(f => {
-      fields[f.key] = getFieldValue(f.key, f.value);
-    });
-    generatePdfMutation.mutate({ formId: form.id, fields });
+  const totalCount = (form: FormConfig) => schemaFor(form).length;
+
+  const handleDownloadPdf = (form: FormConfig) => {
+    const schema = schemaFor(form);
+    const payload: Record<string, string | boolean> = {};
+    for (const def of schema) {
+      const fb = form.prefill[def.name] ?? (def.type === "checkbox" ? false : "");
+      payload[def.name] = getValue(form.id, def.name, fb);
+    }
+    generatePdfMutation.mutate({ formId: form.id, fields: payload });
   };
 
   if (authLoading) {
@@ -235,9 +362,10 @@ export default function Forms() {
         {/* Form Cards */}
         {forms.map((form, i) => {
           const filled = filledCount(form);
-          const total = form.fields.length;
+          const total = totalCount(form);
           const isExpanded = expandedForm === form.id;
-          const isEditing = editMode === form.id;
+          const isBarangayLoading = form.schemaSource === "barangay" && barangaySchemaQuery.isLoading;
+          const isBarangayError = form.schemaSource === "barangay" && barangaySchemaQuery.error;
 
           return (
             <motion.div key={form.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.1 }} className="bg-white rounded-2xl border border-border shadow-sm overflow-hidden">
@@ -247,7 +375,7 @@ export default function Forms() {
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1">
                       <span className="text-[10px] font-[var(--font-mono)] font-semibold uppercase tracking-wider text-teal bg-teal/10 px-2 py-0.5 rounded-full">Step {form.step}</span>
-                      <span className={`text-[10px] font-[var(--font-mono)] px-2 py-0.5 rounded-full ${filled === total ? "text-success bg-success/10" : "text-mango bg-mango-light"}`}>
+                      <span className={`text-[10px] font-[var(--font-mono)] px-2 py-0.5 rounded-full ${total > 0 && filled === total ? "text-success bg-success/10" : "text-mango bg-mango-light"}`}>
                         {filled}/{total} filled
                       </span>
                     </div>
@@ -260,79 +388,31 @@ export default function Forms() {
                 </div>
               </button>
 
-              {/* Expanded form fields */}
+              {/* Expanded wizard */}
               <AnimatePresence>
                 {isExpanded && (
                   <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
                     <div className="px-4 pb-4 border-t border-border/50">
                       <p className="text-xs text-muted-foreground mt-3 mb-4">{form.description}</p>
 
-                      {/* Toggle edit/preview */}
-                      <div className="flex gap-2 mb-4">
-                        <Button onClick={() => setEditMode(isEditing ? null : form.id)} variant="outline" size="sm" className="rounded-xl text-xs border-teal/30 text-teal">
-                          {isEditing ? <><Eye className="w-3 h-3 mr-1" />Preview</> : <><Edit3 className="w-3 h-3 mr-1" />Edit Fields</>}
-                        </Button>
-                      </div>
-
-                      {/* Fields */}
-                      <div className="space-y-2">
-                        {form.fields.map((field) => {
-                          const val = getFieldValue(field.key, field.value);
-                          const isEmpty = !val || val.trim() === "" || val === "(from Step 1)";
-                          return (
-                            <div key={field.key} className="flex items-start gap-2">
-                              <div className="flex-1">
-                                <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-1">
-                                  {field.label}
-                                  {field.required && <span className="text-jeepney-red">*</span>}
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setActiveFormName(form.title);
-                                      formHelp.openHelp(field.label);
-                                    }}
-                                    className="ml-auto text-muted-foreground/60 hover:text-teal transition-colors"
-                                    title={`Tulong sa "${field.label}"`}
-                                  >
-                                    <HelpCircle className="w-3 h-3" />
-                                  </button>
-                                </label>
-                                {isEditing ? (
-                                  <input
-                                    type="text"
-                                    value={getFieldValue(field.key, field.value)}
-                                    onChange={(e) => setFieldOverrides(prev => ({ ...prev, [field.key]: e.target.value }))}
-                                    className="w-full px-3 py-2 rounded-lg bg-muted border border-border text-sm focus:outline-none focus:ring-2 focus:ring-teal/40 font-[var(--font-body)] mt-0.5"
-                                  />
-                                ) : (
-                                  <p className={`text-sm mt-0.5 ${isEmpty ? "text-muted-foreground/50 italic" : "text-earth-brown"} font-[var(--font-body)]`}>
-                                    {isEmpty ? "(empty — fill in profile)" : val}
-                                  </p>
-                                )}
-                              </div>
-                              {!isEmpty && !isEditing && (
-                                <CheckCircle2 className="w-4 h-4 text-success shrink-0 mt-4" />
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-
-                      {/* Download button */}
-                      <div className="mt-4 pt-3 border-t border-border/50">
-                        <Button
-                          onClick={() => handleDownloadPdf(form)}
-                          disabled={generatePdfMutation.isPending}
-                          className="w-full bg-teal hover:bg-teal/90 text-white rounded-xl font-[var(--font-display)] py-3"
-                        >
-                          {generatePdfMutation.isPending ? (
-                            <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Generating PDF...</>
-                          ) : (
-                            <><Download className="w-4 h-4 mr-2" />I-download ang PDF</>
-                          )}
-                        </Button>
-                        <p className="text-[10px] text-center text-muted-foreground mt-2">Print-ready PDF — works offline after download</p>
-                      </div>
+                      {isBarangayLoading ? (
+                        <div className="flex items-center justify-center py-8">
+                          <Loader2 className="w-5 h-5 animate-spin text-teal" />
+                        </div>
+                      ) : isBarangayError ? (
+                        <p className="text-xs text-jeepney-red">Could not load form schema. Try again.</p>
+                      ) : (
+                        <FormWizard
+                          schema={schemaFor(form)}
+                          steps={form.steps}
+                          prefill={form.prefill}
+                          getValue={(name, fb) => getValue(form.id, name, fb)}
+                          setValue={(name, v) => setValue(form.id, name, v)}
+                          onSubmit={() => handleDownloadPdf(form)}
+                          isSubmitting={generatePdfMutation.isPending}
+                          onHelp={(label) => { setActiveFormName(form.title); formHelp.openHelp(label); }}
+                        />
+                      )}
                     </div>
                   </motion.div>
                 )}
