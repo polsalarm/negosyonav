@@ -70,8 +70,20 @@ export type FirestorePost = {
   upvotes: number;
   downvotes: number;
   isFlagged: boolean;
+  stepNumber?: number;
+  commentCount: number;
+  seed?: boolean;
   createdAt: Date;
   updatedAt: Date;
+};
+
+export type FirestoreComment = {
+  id: string;
+  postId: string;
+  userId: string;
+  authorName: string;
+  body: string;
+  createdAt: Date;
 };
 
 export type FirestoreFeedback = {
@@ -237,6 +249,7 @@ export async function getCommunityPosts(lguTag?: string, limit = 50): Promise<Fi
       upvotes: d.upvotes ?? 0,
       downvotes: d.downvotes ?? 0,
       isFlagged: d.isFlagged ?? false,
+      commentCount: typeof d.commentCount === "number" ? d.commentCount : 0,
       createdAt: toDate(d.createdAt),
       updatedAt: toDate(d.updatedAt),
     };
