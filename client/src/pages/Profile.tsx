@@ -8,10 +8,9 @@ import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
-import { getLoginUrl } from "@/const";
 import { motion } from "framer-motion";
 import {
-  ArrowLeft, User, Building2, MapPin, FileText, Save, CheckCircle2, Loader2, Sparkles, MessageCircle,
+  ArrowLeft, User, Building2, MapPin, FileText, Save, CheckCircle2, Loader2, Sparkles, MessageCircle, LogOut,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -90,7 +89,7 @@ const selectClass = "w-full px-3 py-2.5 rounded-xl bg-muted border border-border
 
 export default function Profile() {
   const [, navigate] = useLocation();
-  const { isAuthenticated, loading: authLoading } = useAuth();
+  const { isAuthenticated, loading: authLoading, logout } = useAuth();
   const [profile, setProfile] = useState<ProfileData>(emptyProfile);
   const [saved, setSaved] = useState(false);
 
@@ -173,6 +172,11 @@ export default function Profile() {
     setProfile(prev => ({ ...prev, [field]: value }));
   };
 
+  const handleSignOut = async () => {
+    await logout();
+    navigate("/login", { replace: true });
+  };
+
   const handleSave = () => {
     if (!profile.firstName || !profile.lastName) {
       toast.error("First name and last name are required.");
@@ -219,18 +223,6 @@ export default function Profile() {
     return (
       <div className="min-h-screen bg-warm-cream flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-teal" />
-      </div>
-    );
-  }
-
-  if (!isAuthenticated) {
-    return (
-      <div className="min-h-screen bg-warm-cream flex flex-col items-center justify-center p-6 text-center">
-        <User className="w-12 h-12 text-teal mb-4" />
-        <h2 className="font-[var(--font-display)] text-lg text-earth-brown mb-2">Sign in to save your profile</h2>
-        <p className="text-sm text-muted-foreground mb-6 max-w-sm">Your profile data is used to auto-fill government forms. Sign in to save and access it anytime.</p>
-        <Button onClick={() => { window.location.href = getLoginUrl(); }} className="bg-teal hover:bg-teal/90 text-white rounded-xl px-8 py-3 font-[var(--font-display)]">Sign In</Button>
-        <button onClick={() => navigate("/")} className="text-sm text-muted-foreground mt-4 hover:text-teal">Back to Home</button>
       </div>
     );
   }
@@ -456,6 +448,18 @@ export default function Profile() {
             Your data is stored securely and only used for auto-filling government forms.
           </p>
         </motion.div>
+
+        {/* Sign out */}
+        <div className="pt-2 pb-12">
+          <Button
+            onClick={handleSignOut}
+            variant="outline"
+            className="w-full rounded-xl min-h-11 font-[var(--font-display)] text-sm border-border text-earth-brown hover:bg-muted active:bg-muted"
+          >
+            <LogOut className="w-4 h-4 mr-2" />
+            Sign Out
+          </Button>
+        </div>
       </div>
     </div>
   );
