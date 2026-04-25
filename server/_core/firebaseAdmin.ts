@@ -4,10 +4,17 @@ import { join } from "path";
 
 if (!admin.apps.length) {
   try {
-    const serviceAccountPath = join(process.cwd(), "serviceAccount.json");
-    const serviceAccount = JSON.parse(readFileSync(serviceAccountPath, "utf-8"));
+    let serviceAccount: object;
+    if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+      // Production (Vercel): credentials stored as JSON env var
+      serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+    } else {
+      // Local dev: read serviceAccount.json from project root
+      const serviceAccountPath = join(process.cwd(), "serviceAccount.json");
+      serviceAccount = JSON.parse(readFileSync(serviceAccountPath, "utf-8"));
+    }
     admin.initializeApp({
-      credential: admin.credential.cert(serviceAccount),
+      credential: admin.credential.cert(serviceAccount as admin.ServiceAccount),
     });
     console.log("[Firebase Admin] Initialized successfully");
   } catch (error) {
