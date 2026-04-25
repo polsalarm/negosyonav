@@ -382,16 +382,10 @@ export default function Profile() {
   };
 
   const handleExtract = () => {
-    const stored = sessionStorage.getItem("negosyonav_chat_history");
-    if (!stored) { toast.error("Wala pang chat history. Mag-chat muna sa Home page."); return; }
-    try {
-      const msgs = JSON.parse(stored);
-      if (!Array.isArray(msgs) || msgs.length < 2) { toast.error("Kulang pa ang chat. Mag-chat pa ng konti."); return; }
-      setExtracting(true);
-      extractMutation.mutate({ messages: msgs });
-    } catch {
-      toast.error("Error reading chat history.");
-    }
+    setExtracting(true);
+    extractMutation.mutate(undefined, {
+      onSettled: () => setExtracting(false),
+    });
   };
 
   const handleSave = () => {
