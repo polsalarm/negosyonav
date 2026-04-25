@@ -12,6 +12,7 @@ import Forms from "./pages/Forms";
 import Grants from "./pages/Grants";
 import Places from "./pages/Places";
 import Calendar from "./pages/Calendar";
+import Planner from "./pages/Planner";
 import {
   MessageCircle, Map, Users, User, FileText, Award, MapPin, CalendarDays,
 } from "lucide-react";
@@ -27,6 +28,7 @@ function Router() {
       <Route path={"/grants"} component={Grants} />
       <Route path={"/places"} component={Places} />
       <Route path={"/calendar"} component={Calendar} />
+      <Route path={"/planner"} component={Planner} />
       <Route path={"/404"} component={NotFound} />
       <Route component={NotFound} />
     </Switch>
@@ -45,7 +47,7 @@ function BottomNav() {
   ];
 
   // Don't show bottom nav on certain pages
-  const hideOn = ["/places", "/calendar", "/grants"];
+  const hideOn = ["/places", "/calendar", "/grants", "/planner"];
   if (hideOn.includes(location)) return null;
 
   return (

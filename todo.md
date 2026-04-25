@@ -43,7 +43,7 @@
 - [x] Build form auto-fill preview page per government form (DTI, Barangay, BIR 1901)
 - [x] Generate print-ready content with pre-populated fields
 - [x] "I-download" button for each form
-- [ ] Works offline after generation (PWA stretch goal)
+- [ ] Works offline after generation (PWA stretch goal — not yet implemented, would need service worker + cache strategy)
 
 ## Phase 7: Grant & Livelihood Matching (Feature 04)
 - [x] Auto-check user profile against LGU grants, DOLE programs, Negosyo Center funds
@@ -52,7 +52,7 @@
 - [x] Grant matching page with BMBE, DOLE DILP, SB Corp programs
 
 ## Phase 8: Remaining Features (06-09)
-- [ ] Feature 06: Time-based task planner (AI surfaces steps completable within user's available time)
+- [x] Feature 06: Time-based task planner (Planner.tsx - select available time, shows doable steps, office hours awareness, online tasks 24/7, suggested schedule)
 - [x] Feature 07: Smart place finder (office cards with queue tips, best times, Google Maps links)
 - [x] Feature 08: Registration cost estimator (itemized breakdown in roadmap)
 - [x] Feature 09: Renewal & deadline calendar (tracks deadlines with countdown, tips, penalties)
@@ -61,6 +61,6 @@
 - [x] Bottom navigation bar (Chat, Roadmap, Forms, Hub, Profile)
 - [x] Fix chat input overlap with bottom nav
 - [x] All pages accessible from bottom nav or roadmap
-- [x] More Tools grid on Roadmap page (Auto-fill Forms, Grant Matching, Place Finder, Renewal Calendar)
+- [x] More Tools grid on Roadmap page (Auto-fill Forms, Grant Matching, Place Finder, Renewal Calendar, Task Planner)
 - [x] Chat history persisted to sessionStorage for profile extraction
 - [x] 18 vitest tests passing (grants, forms, feedback, community, auth)

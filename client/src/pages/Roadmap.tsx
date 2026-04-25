@@ -518,6 +518,11 @@ export default function Roadmap() {
             <h4 className="font-[var(--font-display)] text-xs text-earth-brown">Renewal Calendar</h4>
             <p className="text-[10px] text-muted-foreground mt-0.5">Deadlines & reminders</p>
           </button>
+          <button onClick={() => navigate("/planner")} className="bg-white rounded-xl border border-border p-3 shadow-sm hover:border-teal/30 transition-colors text-left col-span-2">
+            <Clock className="w-5 h-5 text-teal mb-1.5" />
+            <h4 className="font-[var(--font-display)] text-xs text-earth-brown">Task Planner</h4>
+            <p className="text-[10px] text-muted-foreground mt-0.5">"May 2 oras ka ba?" — steps na kaya mo gawin ngayon</p>
+          </button>
         </div>
       </div>
 
