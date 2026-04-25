@@ -1,15 +1,17 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   updateProfile,
+  sendPasswordResetEmail,
 } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
 import { Loader2, Mail, Lock, User, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function Login() {
   const [, navigate] = useLocation();
@@ -19,6 +21,32 @@ export default function Login() {
   const [displayName, setDisplayName] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const { isAuthenticated, loading: authLoading } = useAuth();
+
+  useEffect(() => {
+    if (!authLoading && isAuthenticated) {
+      navigate("/", { replace: true });
+    }
+  }, [authLoading, isAuthenticated, navigate]);
+
+  const handleForgotPassword = async () => {
+    if (!email) {
+      toast.error("Mag-type muna ng email para makapag-reset.");
+      return;
+    }
+    try {
+      await sendPasswordResetEmail(auth, email);
+      toast.success("Reset link sent! Check your email.");
+    } catch (err: unknown) {
+      const code = (err as { code?: string }).code ?? "";
+      const messages: Record<string, string> = {
+        "auth/invalid-email": "Invalid ang email format.",
+        "auth/user-not-found": "Walang account sa email na 'yan.",
+        "auth/too-many-requests": "Too many attempts. Subukan ulit mamaya.",
+      };
+      toast.error(messages[code] ?? "May error. Subukan ulit.");
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -35,7 +63,6 @@ export default function Login() {
         await signInWithEmailAndPassword(auth, email, password);
         toast.success("Welcome back! Tara, simulan na natin.");
       }
-      navigate("/");
     } catch (err: unknown) {
       const code = (err as { code?: string }).code ?? "";
       const messages: Record<string, string> = {
@@ -131,6 +158,16 @@ export default function Login() {
               {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
             </button>
           </div>
+
+          {mode === "signin" && (
+            <button
+              type="button"
+              onClick={handleForgotPassword}
+              className="block w-full text-right text-xs text-teal hover:text-teal/80 active:text-teal/70 min-h-11 px-2 font-[var(--font-mono)]"
+            >
+              Forgot password?
+            </button>
+          )}
 
           <Button
             type="submit"
