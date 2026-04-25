@@ -151,9 +151,10 @@ function vitePluginManusDebugCollector(): Plugin {
   };
 }
 
-const plugins = [react(), tailwindcss(), jsxLocPlugin(), vitePluginManusRuntime(), vitePluginManusDebugCollector(), VitePWA({
+const isDev = process.env.NODE_ENV !== "production";
+const plugins = [react(), tailwindcss(), ...(isDev ? [jsxLocPlugin(), vitePluginManusRuntime(), vitePluginManusDebugCollector()] : []), VitePWA({
   registerType: "autoUpdate",
-  includeAssets: ["favicon.ico"],
+  includeAssets: ["favicon.svg", "favicon.ico"],
   manifest: {
     name: "NegosyoNav - Lakad Roadmap",
     short_name: "NegosyoNav",
@@ -163,8 +164,7 @@ const plugins = [react(), tailwindcss(), jsxLocPlugin(), vitePluginManusRuntime(
     display: "standalone",
     start_url: "/",
     icons: [
-      { src: "/pwa-192x192.png", sizes: "192x192", type: "image/png" },
-      { src: "/pwa-512x512.png", sizes: "512x512", type: "image/png" },
+      { src: "/favicon.svg", sizes: "any", type: "image/svg+xml" },
     ],
   },
   workbox: {
