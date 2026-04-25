@@ -66,6 +66,7 @@ export function OfficeMapCard({ office }: OfficeMapCardProps) {
   const mapRef = useRef<google.maps.Map | null>(null);
   const markerRef = useRef<google.maps.marker.AdvancedMarkerElement | null>(null);
   const rendererRef = useRef<google.maps.DirectionsRenderer | null>(null);
+  const rendererInitRef = useRef<Promise<google.maps.DirectionsRenderer> | null>(null);
   const resultsCacheRef = useRef<Map<TravelMode, google.maps.DirectionsResult>>(
     new Map(),
   );
@@ -74,19 +75,41 @@ export function OfficeMapCard({ office }: OfficeMapCardProps) {
 
   const center = { lat: office.lat, lng: office.lng };
 
-  // Drop a marker on the office once the map is ready.
+  /**
+   * Called by <MapView> after google.maps.Map is constructed. We create the
+   * marker here (not in a separate effect) so we never race with map-ready —
+   * by the time this fires, map is guaranteed to exist.
+   */
+  function handleMapReady(map: google.maps.Map) {
+    mapRef.current = map;
+    loadGoogleMaps().then((g) => {
+      if (markerRef.current) {
+        markerRef.current.map = null;
+      }
+      markerRef.current = new g.maps.marker.AdvancedMarkerElement({
+        map,
+        position: { lat: office.lat, lng: office.lng },
+        title: office.name,
+      });
+    });
+  }
+
+  // If the office prop changes in-place (parent swap), refresh marker + recenter.
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
     let cancelled = false;
     loadGoogleMaps().then((g) => {
-      if (cancelled) return;
-      markerRef.current?.map && (markerRef.current.map = null);
+      if (cancelled || !mapRef.current) return;
+      if (markerRef.current) {
+        markerRef.current.map = null;
+      }
       markerRef.current = new g.maps.marker.AdvancedMarkerElement({
-        map,
-        position: center,
+        map: mapRef.current,
+        position: { lat: office.lat, lng: office.lng },
         title: office.name,
       });
+      mapRef.current.setCenter({ lat: office.lat, lng: office.lng });
     });
     return () => {
       cancelled = true;
@@ -94,8 +117,20 @@ export function OfficeMapCard({ office }: OfficeMapCardProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [office.lat, office.lng]);
 
-  function handleMapReady(map: google.maps.Map) {
-    mapRef.current = map;
+  async function ensureRenderer(): Promise<google.maps.DirectionsRenderer> {
+    if (rendererRef.current) return rendererRef.current;
+    if (rendererInitRef.current) return rendererInitRef.current;
+    const map = mapRef.current!;
+    rendererInitRef.current = loadGoogleMaps().then((g) => {
+      const r = new g.maps.DirectionsRenderer({
+        map,
+        suppressMarkers: false,
+        preserveViewport: false,
+      });
+      rendererRef.current = r;
+      return r;
+    });
+    return rendererInitRef.current;
   }
 
   async function requestRoute(
@@ -106,7 +141,8 @@ export function OfficeMapCard({ office }: OfficeMapCardProps) {
     if (!map) return;
     const cached = resultsCacheRef.current.get(mode);
     if (cached) {
-      renderRoute(cached);
+      const renderer = await ensureRenderer();
+      renderer.setDirections(cached);
       setState({ kind: "showing_route", origin, mode, result: cached });
       return;
     }
@@ -116,11 +152,12 @@ export function OfficeMapCard({ office }: OfficeMapCardProps) {
       const svc = new g.maps.DirectionsService();
       const result = await svc.route({
         origin,
-        destination: center,
+        destination: { lat: office.lat, lng: office.lng },
         travelMode: g.maps.TravelMode[mode],
       });
       resultsCacheRef.current.set(mode, result);
-      renderRoute(result);
+      const renderer = await ensureRenderer();
+      renderer.setDirections(result);
       setState({ kind: "showing_route", origin, mode, result });
     } catch (err: unknown) {
       const status = (err as { code?: string })?.code ?? "";
@@ -131,37 +168,33 @@ export function OfficeMapCard({ office }: OfficeMapCardProps) {
       } else {
         toast.error("Hindi ma-kuha ang directions. Subukan ulit.");
       }
-      setState({ kind: "idle" });
+      // If the failed origin was a manual address, return to the manual-input
+      // state with the address preserved so the user doesn't have to retype.
+      if (typeof origin === "string") {
+        setState({ kind: "geo_denied", manualAddress: origin });
+      } else {
+        setState({ kind: "idle" });
+      }
     }
-  }
-
-  async function renderRoute(result: google.maps.DirectionsResult) {
-    const map = mapRef.current;
-    if (!map) return;
-    const g = await loadGoogleMaps();
-    if (!rendererRef.current) {
-      rendererRef.current = new g.maps.DirectionsRenderer({
-        map,
-        suppressMarkers: false,
-        preserveViewport: false,
-      });
-    }
-    rendererRef.current.setDirections(result);
   }
 
   function hideRoute() {
     rendererRef.current?.setMap(null);
     rendererRef.current = null;
+    rendererInitRef.current = null;
     // Re-show our office marker (DirectionsRenderer hid it).
     const map = mapRef.current;
     if (map) {
       loadGoogleMaps().then((g) => {
+        if (markerRef.current) {
+          markerRef.current.map = null;
+        }
         markerRef.current = new g.maps.marker.AdvancedMarkerElement({
           map,
-          position: center,
+          position: { lat: office.lat, lng: office.lng },
           title: office.name,
         });
-        map.setCenter(center);
+        map.setCenter({ lat: office.lat, lng: office.lng });
         map.setZoom(16);
       });
     }
@@ -169,6 +202,7 @@ export function OfficeMapCard({ office }: OfficeMapCardProps) {
   }
 
   async function handleGetDirections() {
+    if (state.kind !== "idle") return; // guard against rapid double-tap
     if (cachedOrigin) {
       await requestRoute(cachedOrigin, "DRIVING");
       return;
@@ -244,6 +278,7 @@ export function OfficeMapCard({ office }: OfficeMapCardProps) {
           <div className="flex gap-2">
             <Button
               onClick={handleGetDirections}
+              disabled={state.kind !== "idle"}
               className="flex-1 bg-teal hover:bg-teal/90 text-white rounded-xl min-h-11"
             >
               <Navigation className="w-4 h-4 mr-2" />
@@ -377,6 +412,7 @@ function DirectionsPanel({
           <ol className="space-y-2 mt-2 pl-4 list-decimal text-[11px] text-earth-brown">
             {leg?.steps.map((s, i) => (
               <li key={i}>
+                {/* trusted: Google sanitizes their own instruction HTML */}
                 <span dangerouslySetInnerHTML={{ __html: s.instructions }} />
                 <span className="text-muted-foreground ml-1">
                   ({s.distance?.text}, {s.duration?.text})
