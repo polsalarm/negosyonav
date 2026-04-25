@@ -15,6 +15,7 @@ import {
   CalendarDays, Navigation,
 } from "lucide-react";
 import { manilaData, type RegistrationStep } from "@/data/manilaData";
+import { StepOfficeCard } from "@/components/StepOfficeCard";
 import { toast } from "sonner";
 
 function formatCurrency(amount: number): string {
@@ -23,7 +24,9 @@ function formatCurrency(amount: number): string {
 
 /* ─── Step Card with inline requirement tasks ─── */
 function StepCard({
-  step, index, isCompleted, isActive, isLocked, checkedReqs, onToggleReq, onMarkComplete,
+  step, index, isCompleted, isActive, isLocked, checkedReqs,
+  onToggleReq, onMarkComplete,
+  profile, everExpanded, onFirstExpand,
 }: {
   step: RegistrationStep;
   index: number;
@@ -33,6 +36,9 @@ function StepCard({
   checkedReqs: Set<string>;
   onToggleReq: (key: string) => void;
   onMarkComplete: () => void;
+  profile: { bizBarangay?: string | null } | null;
+  everExpanded: boolean;
+  onFirstExpand: () => void;
 }) {
   const [expanded, setExpanded] = useState(false);
 
@@ -77,7 +83,11 @@ function StepCard({
       <div className={`ml-12 mb-4 ${isLocked && !isCompleted ? "opacity-50 pointer-events-none" : ""}`}>
         <div className={`rounded-xl border ${color.border} ${isCompleted ? "opacity-70" : ""} bg-white shadow-sm overflow-hidden transition-all`}>
           {/* Card Header */}
-          <button onClick={() => setExpanded(!expanded)} className="w-full text-left p-4">
+          <button onClick={() => {
+            const next = !expanded;
+            setExpanded(next);
+            if (next) onFirstExpand();
+          }} className="w-full text-left p-4">
             <div className="flex items-start justify-between gap-3">
               <div className="flex-1">
                 <div className="flex items-center gap-2 mb-1 flex-wrap">
@@ -134,6 +144,13 @@ function StepCard({
                       </a>
                     )}
                   </div>
+
+                  {/* Office card + map (Track N) */}
+                  {everExpanded && (
+                    <div className={expanded ? "block" : "hidden"}>
+                      <StepOfficeCard step={step} profile={profile} />
+                    </div>
+                  )}
 
                   {/* ★ Inline Requirement Tasks ★ */}
                   <div>
@@ -278,6 +295,11 @@ export default function Roadmap() {
   const [hoverRating, setHoverRating] = useState(0);
   const [ratingSubmitted, setRatingSubmitted] = useState(false);
 
+  const { data: profile } = trpc.profile.get.useQuery(undefined, {
+    staleTime: 5 * 60 * 1000, // 5 min — profile rarely changes mid-session
+  });
+  const [stepsEverExpanded, setStepsEverExpanded] = useState<Set<number>>(new Set());
+
   const feedbackMutation = trpc.feedback.submit.useMutation({
     onSuccess: () => { toast.success("Salamat sa feedback mo! 🙏"); setShowFeedback(false); setFeedbackMessage(""); },
     onError: () => { toast.error("May error sa pag-submit. Subukan ulit."); },
@@ -374,6 +396,16 @@ export default function Roadmap() {
                 checkedReqs={checkedReqs}
                 onToggleReq={toggleReq}
                 onMarkComplete={() => markStepComplete(step.step_number)}
+                profile={profile ?? null}
+                everExpanded={stepsEverExpanded.has(step.step_number)}
+                onFirstExpand={() =>
+                  setStepsEverExpanded((prev) => {
+                    if (prev.has(step.step_number)) return prev;
+                    const next = new Set(prev);
+                    next.add(step.step_number);
+                    return next;
+                  })
+                }
               />
             );
           })}
