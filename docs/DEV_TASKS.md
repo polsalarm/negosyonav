@@ -275,6 +275,21 @@ Root cause: `Hub.tsx` ships with `SEED_POSTS` whose IDs are `seed-1`, `seed-2`, 
 - P.3 Either path: verify `community.myVotes` rehydrates on page load so the user's previous up/down state colors the button correctly (currently the optimistic state is lost on refresh).
 - P.4 Add a Vitest test that calls `community.vote` against a fresh post and asserts upvote count increments.
 
+### Track R — Multi-thread chat + global app drawer — ✅ done 2026-04-26
+**Owner files:** `server/db.ts` (chat schema), `server/routers.ts` (`ai` sub-router), `server/routers.test.ts`, `client/src/pages/Home.tsx`, `client/src/components/AppDrawer.tsx` (new), `client/src/pages/Onboarding.tsx`.
+
+User directive: hamburger drawer (top-left, full-screen left slide-in) replaces the in-header Hub button + Manila City badge; logo moves top-right. Drawer holds "Bagong chat", feature nav, and history of past chats. Default landing state must be a fresh new chat.
+
+- R.1 Backend: replace singleton `chatSessions/{uid}` with per-thread subcollection `chatThreads/{uid}/threads/{tid}`. Each thread carries its own `messages`, `roadmapReady`, `extractedAt`, and an auto-derived `title` from the first user message (≤60 chars). Helpers: `getChatThread`, `listChatThreads`, `getMostRecentThread`, `appendThreadMessages` (creates a doc when `threadId` is null), `deleteChatThread`, `setThreadExtractedAt`. — ✅ done 2026-04-26
+- R.2 tRPC `ai` sub-router rewritten — dropped `getSession` + `clearSession`; added `listThreads`, `getThread({threadId})`, `deleteThread({threadId})`. `chat({content, threadId?})` creates a new thread when `threadId` is omitted and returns the new id; `extractProfile({threadId?})` falls back to most-recent thread when omitted. — ✅ done 2026-04-26
+- R.3 Tests rewritten in `server/routers.test.ts` — multi-thread mock store keyed by `${uid}:${threadId}`; new coverage for fresh-thread-by-default, sticky `roadmapReady` per thread, `getThread NOT_FOUND`, `listThreads` order, `deleteThread`, `extractProfile` fallback to most-recent. 22 ai tests + 61 total green. — ✅ done 2026-04-26
+- R.4 `client/src/components/AppDrawer.tsx` — shadcn `Sheet side="left"` overridden to `w-full sm:max-w-full` for true full-screen. Sections: Bagong chat CTA (44px+), feature nav (Chat/Roadmap/Forms/Hub/Profile/Places/Calendar/Grants/Planner) with active-route highlight, history list from `ai.listThreads` with title, message count, relative time, and per-row delete (44px hit). — ✅ done 2026-04-26
+- R.5 `Home.tsx` header rebuilt — hamburger top-left (44px), logo top-right; Hub button + Manila badge removed (Hub still reachable via `BottomNav` and drawer). Component holds local `activeThreadId: string \| null` (default `null` = fresh chat). `ai.chat` mutation passes `threadId` only when active; on success of a fresh send, server returns the new id and the component switches to it. New Chat from drawer resets to `null`. Pending-message state covers the in-flight first send before the thread id arrives. — ✅ done 2026-04-26
+- R.6 `Onboarding.tsx` migrated — `chatSessionQuery` → `ai.listThreads`. Auto-extract trigger now fires when at least one thread has ≥2 messages and the profile is empty. `extractProfile()` callers (Onboarding + Profile Sparkles) unchanged in shape — server-side picks most-recent thread. — ✅ done 2026-04-26
+- R.7 🆕 2026-04-26 — Old `chatSessions/{uid}` Firestore docs are no longer read or written. No data migration shipped (hackathon pace); legacy docs simply orphan and can be cleaned up later if the project leaves prototype.
+
+> Note: Track L (chatbot E2E) was the prior chat owner — Track R supersedes its persistence layer. L's roadmapReady heuristic, LLM-payload cap (12), storage cap (40), and Taglish error toast are preserved per-thread.
+
 ---
 
 ## 5. Suggested order + parallelism

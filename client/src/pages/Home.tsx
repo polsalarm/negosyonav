@@ -12,11 +12,12 @@ import {
   ChevronDown,
   Sparkles,
   MessageCircle,
-  Users,
+  Menu,
 } from "lucide-react";
 import { sampleUserMessages } from "@/data/manilaData";
 import { trpc } from "@/lib/trpc";
 import { Streamdown } from "streamdown";
+import AppDrawer from "@/components/AppDrawer";
 
 type ChatMessage = { role: "user" | "assistant"; content: string };
 
@@ -35,28 +36,79 @@ const FOLLOWUP_SUGGESTIONS = [
 export default function Home() {
   const [, navigate] = useLocation();
   const [inputValue, setInputValue] = useState("");
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  // Default null = fresh chat. Picking a thread from drawer sets this.
+  const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
+  // Optimistic local messages for the in-flight new chat (until server returns threadId).
+  const [pendingMessages, setPendingMessages] = useState<ChatMessage[]>([]);
+  const [pendingRoadmapReady, setPendingRoadmapReady] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
 
   const utils = trpc.useUtils();
-  const sessionQuery = trpc.ai.getSession.useQuery(undefined, {
-    staleTime: 30_000,
-  });
+  const threadQuery = trpc.ai.getThread.useQuery(
+    activeThreadId ? { threadId: activeThreadId } : { threadId: "" },
+    {
+      enabled: !!activeThreadId,
+      staleTime: 30_000,
+    }
+  );
+
   const chatMutation = trpc.ai.chat.useMutation({
-    onSuccess: (data, variables) => {
-      utils.ai.getSession.setData(undefined, (prev) => {
-        const prior = prev?.messages ?? [];
-        return {
+    onMutate: (variables) => {
+      if (activeThreadId) {
+        const key = { threadId: activeThreadId };
+        const prev = utils.ai.getThread.getData(key);
+        utils.ai.getThread.setData(key, (curr) => {
+          const prior = curr?.messages ?? [];
+          return {
+            threadId: activeThreadId,
+            title: curr?.title ?? "Bagong chat",
+            messages: [...prior, { role: "user", content: variables.content }],
+            roadmapReady: curr?.roadmapReady ?? false,
+          };
+        });
+        return { prev, optimisticThreadId: activeThreadId };
+      } else {
+        setPendingMessages((m) => [...m, { role: "user", content: variables.content }]);
+        return { prev: null, optimisticThreadId: null };
+      }
+    },
+    onSuccess: (data, _vars, ctx) => {
+      if (ctx?.optimisticThreadId) {
+        const key = { threadId: ctx.optimisticThreadId };
+        utils.ai.getThread.setData(key, (curr) => {
+          const prior = curr?.messages ?? [];
+          return {
+            threadId: ctx.optimisticThreadId!,
+            title: data.title,
+            messages: [...prior, { role: "assistant", content: data.content }],
+            roadmapReady: data.roadmapReady,
+          };
+        });
+      } else {
+        // Was a fresh chat — server created the thread, now switch to it.
+        setActiveThreadId(data.threadId);
+        setPendingMessages([]);
+        setPendingRoadmapReady(false);
+        utils.ai.getThread.setData({ threadId: data.threadId }, {
+          threadId: data.threadId,
+          title: data.title,
           messages: [
-            ...prior,
-            { role: "user", content: variables.content },
+            ...pendingMessages,
             { role: "assistant", content: data.content },
           ],
           roadmapReady: data.roadmapReady,
-        };
-      });
+        });
+      }
+      utils.ai.listThreads.invalidate();
     },
-    onError: (err) => {
+    onError: (err, _vars, ctx) => {
+      if (ctx?.optimisticThreadId && ctx.prev) {
+        utils.ai.getThread.setData({ threadId: ctx.optimisticThreadId }, ctx.prev);
+      } else if (!ctx?.optimisticThreadId) {
+        setPendingMessages((m) => m.slice(0, -1));
+      }
       if (err.message === "LLM_UNAVAILABLE") {
         toast.error("Bumalik mamaya — busy ang AI 🙏");
       } else {
@@ -65,49 +117,70 @@ export default function Home() {
     },
   });
 
-  const stored = sessionQuery.data?.messages ?? [];
-  const messages: ChatMessage[] = stored.length === 0 ? [WELCOME_MESSAGE] : stored;
+  const storedMessages = activeThreadId
+    ? (threadQuery.data?.messages ?? [])
+    : pendingMessages;
+  const messages: ChatMessage[] =
+    storedMessages.length === 0 ? [WELCOME_MESSAGE] : storedMessages;
   const isTyping = chatMutation.isPending;
-  const roadmapReady = sessionQuery.data?.roadmapReady ?? false;
-  const hasUserMessages = stored.length > 0;
+  const roadmapReady = activeThreadId
+    ? (threadQuery.data?.roadmapReady ?? false)
+    : pendingRoadmapReady;
+  const hasUserMessages = storedMessages.length > 0;
+
+  const handleSelectThread = (threadId: string | null) => {
+    setActiveThreadId(threadId);
+    setPendingMessages([]);
+    setPendingRoadmapReady(false);
+  };
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages.length, isTyping]);
 
+  useEffect(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(Math.max(el.scrollHeight, 40), 120)}px`;
+  }, [inputValue]);
+
   const handleSend = (text?: string) => {
     const msg = (text ?? inputValue).trim();
     if (!msg || isTyping) return;
     setInputValue("");
-    chatMutation.mutate({ content: msg });
+    chatMutation.mutate(
+      activeThreadId ? { content: msg, threadId: activeThreadId } : { content: msg }
+    );
     inputRef.current?.focus();
   };
 
   return (
     <div className="min-h-screen flex flex-col bg-warm-cream">
+      <AppDrawer
+        open={drawerOpen}
+        onOpenChange={setDrawerOpen}
+        activeThreadId={activeThreadId}
+        onSelectThread={handleSelectThread}
+      />
       {/* Header */}
       <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-border">
         <div className="container flex items-center justify-between h-14">
+          <button
+            type="button"
+            onClick={() => setDrawerOpen(true)}
+            aria-label="Open menu"
+            className="-ml-2 inline-flex items-center justify-center h-11 w-11 rounded-lg text-earth-brown hover:bg-mango-light active:bg-mango-light transition-colors"
+          >
+            <Menu className="w-5 h-5" />
+          </button>
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-teal flex items-center justify-center">
-              <MapPin className="w-4 h-4 text-white" />
-            </div>
             <span className="font-[var(--font-display)] text-lg text-earth-brown tracking-tight">
               NegosyoNav
             </span>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => navigate("/hub")}
-              aria-label="Open Negosyante Hub"
-              className="inline-flex items-center gap-1.5 text-xs font-medium text-earth-brown bg-mango-light border border-mango/20 px-4 min-h-11 rounded-full hover:bg-mango/20 transition-colors"
-            >
-              <Users className="w-3.5 h-3.5" />
-              Hub
-            </button>
-            <span className="inline-flex items-center text-xs font-[var(--font-mono)] text-muted-foreground bg-mango-light px-3 min-h-11 rounded-full">
-              Manila City
-            </span>
+            <div className="w-8 h-8 rounded-lg bg-teal flex items-center justify-center">
+              <MapPin className="w-4 h-4 text-white" />
+            </div>
           </div>
         </div>
       </header>
@@ -252,13 +325,13 @@ export default function Home() {
       <div className="fixed bottom-16 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-border z-40">
         <div className="container max-w-2xl py-3">
           {/* Quick suggestions — always visible, swap copy after first reply */}
-          <div className="flex gap-2 overflow-x-auto pb-3 scrollbar-hide">
+          <div className="flex gap-1.5 overflow-x-auto pb-2 scrollbar-hide">
             {(hasUserMessages ? FOLLOWUP_SUGGESTIONS : sampleUserMessages).map((msg) => (
               <button
                 key={msg}
                 onClick={() => handleSend(msg)}
                 disabled={isTyping}
-                className="shrink-0 inline-flex items-center text-xs font-medium text-teal bg-teal-light border border-teal/20 px-4 min-h-11 rounded-full hover:bg-teal/20 transition-colors disabled:opacity-50"
+                className="shrink-0 inline-flex items-center text-[11px] font-medium text-teal bg-teal-light border border-teal/20 px-2.5 py-1 rounded-full hover:bg-teal/20 transition-colors disabled:opacity-50"
               >
                 {msg}
               </button>
@@ -266,33 +339,34 @@ export default function Home() {
           </div>
 
           {/* Input bar */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-end gap-1.5">
             <div className="flex-1 relative">
-              <MessageCircle className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <input
+              <MessageCircle className="absolute left-2.5 top-3 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+              <textarea
                 ref={inputRef}
-                type="text"
+                rows={1}
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key !== "Enter") return;
                   if (e.nativeEvent.isComposing) return;
+                  if (e.shiftKey) return;
                   e.preventDefault();
                   handleSend();
                 }}
                 placeholder="I-describe ang iyong negosyo..."
                 aria-label="Chat message input"
                 enterKeyHint="send"
-                className="w-full pl-10 pr-4 py-3 rounded-xl bg-muted border border-border text-base focus:outline-none focus:ring-2 focus:ring-teal/40 transition-all font-[var(--font-body)]"
+                className="block w-full pl-8 pr-3 py-2 h-10 min-h-10 max-h-[120px] rounded-lg bg-muted border border-border text-base focus:outline-none focus:ring-2 focus:ring-teal/40 transition-all font-[var(--font-body)] resize-none overflow-y-auto leading-6"
               />
             </div>
             <Button
               onClick={() => handleSend()}
               disabled={!inputValue.trim() || isTyping}
               aria-label="Send message"
-              className="bg-teal hover:bg-teal/90 text-white rounded-xl h-11 w-11 p-0 shrink-0 shadow-md"
+              className="bg-teal hover:bg-teal/90 text-white rounded-lg h-10 w-10 p-0 shrink-0 shadow-md"
             >
-              <Send className="w-4 h-4" />
+              <Send className="w-3.5 h-3.5" />
             </Button>
           </div>
         </div>

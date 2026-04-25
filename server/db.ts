@@ -90,8 +90,10 @@ export type ChatMessage = {
   ts: Date;
 };
 
-export type FirestoreChatSession = {
+export type FirestoreChatThread = {
   uid: string;
+  threadId: string;
+  title: string;
   messages: ChatMessage[];
   roadmapReady: boolean;
   extractedAt: Date | null;
@@ -99,7 +101,17 @@ export type FirestoreChatSession = {
   updatedAt: Date;
 };
 
+export type ChatThreadSummary = {
+  threadId: string;
+  title: string;
+  messageCount: number;
+  roadmapReady: boolean;
+  updatedAt: Date;
+  createdAt: Date;
+};
+
 const CHAT_STORAGE_CAP = 40;
+const THREAD_TITLE_MAX = 60;
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -298,12 +310,19 @@ export async function getUserVotes(userId: string): Promise<Array<{ postId: stri
   }));
 }
 
-// ─── Chat Sessions ─────────────────────────────────────────────────────────────
+// ─── Chat Threads ──────────────────────────────────────────────────────────────
 
-export async function getChatSession(uid: string): Promise<FirestoreChatSession | null> {
-  const doc = await db().collection("chatSessions").doc(uid).get();
-  if (!doc.exists) return null;
-  const d = doc.data()!;
+function threadsCol(uid: string) {
+  return db().collection("chatThreads").doc(uid).collection("threads");
+}
+
+function deriveTitle(firstUserMessage: string): string {
+  const trimmed = firstUserMessage.trim().replace(/\s+/g, " ");
+  if (trimmed.length <= THREAD_TITLE_MAX) return trimmed || "Bagong chat";
+  return trimmed.slice(0, THREAD_TITLE_MAX - 1).trimEnd() + "…";
+}
+
+function deserializeThread(uid: string, threadId: string, d: FirebaseFirestore.DocumentData): FirestoreChatThread {
   const rawMsgs = Array.isArray(d.messages) ? d.messages : [];
   const messages: ChatMessage[] = rawMsgs
     .filter((m: unknown): m is { role: string; content: string; ts?: unknown } =>
@@ -316,6 +335,8 @@ export async function getChatSession(uid: string): Promise<FirestoreChatSession 
     }));
   return {
     uid,
+    threadId,
+    title: typeof d.title === "string" && d.title.length > 0 ? d.title : "Bagong chat",
     messages,
     roadmapReady: d.roadmapReady === true,
     extractedAt: d.extractedAt ? toDate(d.extractedAt) : null,
@@ -324,12 +345,43 @@ export async function getChatSession(uid: string): Promise<FirestoreChatSession 
   };
 }
 
-export async function appendChatMessages(
+export async function getChatThread(uid: string, threadId: string): Promise<FirestoreChatThread | null> {
+  const doc = await threadsCol(uid).doc(threadId).get();
+  if (!doc.exists) return null;
+  return deserializeThread(uid, threadId, doc.data()!);
+}
+
+export async function listChatThreads(uid: string): Promise<ChatThreadSummary[]> {
+  const snap = await threadsCol(uid).orderBy("updatedAt", "desc").limit(50).get();
+  return snap.docs.map(doc => {
+    const d = doc.data();
+    const msgCount = Array.isArray(d.messages) ? d.messages.length : 0;
+    return {
+      threadId: doc.id,
+      title: typeof d.title === "string" && d.title.length > 0 ? d.title : "Bagong chat",
+      messageCount: msgCount,
+      roadmapReady: d.roadmapReady === true,
+      updatedAt: toDate(d.updatedAt),
+      createdAt: toDate(d.createdAt),
+    };
+  });
+}
+
+export async function getMostRecentThread(uid: string): Promise<FirestoreChatThread | null> {
+  const snap = await threadsCol(uid).orderBy("updatedAt", "desc").limit(1).get();
+  if (snap.empty) return null;
+  const doc = snap.docs[0];
+  return deserializeThread(uid, doc.id, doc.data());
+}
+
+export async function appendThreadMessages(
   uid: string,
+  threadId: string | null,
   newMessages: Array<{ role: "user" | "assistant"; content: string }>,
   roadmapReady: boolean
-): Promise<FirestoreChatSession> {
-  const ref = db().collection("chatSessions").doc(uid);
+): Promise<FirestoreChatThread> {
+  const col = threadsCol(uid);
+  const ref = threadId ? col.doc(threadId) : col.doc();
   const existing = await ref.get();
   const now = new Date();
   const stamped: ChatMessage[] = newMessages.map(m => ({
@@ -338,49 +390,60 @@ export async function appendChatMessages(
     ts: now,
   }));
 
-  const prior: ChatMessage[] = existing.exists
-    ? (existing.data()!.messages ?? []).map((m: { role: string; content: string; ts?: unknown }) => ({
-        role: m.role === "assistant" ? "assistant" : "user",
-        content: String(m.content),
-        ts: toDate(m.ts),
-      }))
-    : [];
-
-  const combined = [...prior, ...stamped].slice(-CHAT_STORAGE_CAP);
-
   if (existing.exists) {
+    const prior: ChatMessage[] = (existing.data()!.messages ?? []).map((m: { role: string; content: string; ts?: unknown }) => ({
+      role: m.role === "assistant" ? "assistant" : "user",
+      content: String(m.content),
+      ts: toDate(m.ts),
+    }));
+    const combined = [...prior, ...stamped].slice(-CHAT_STORAGE_CAP);
     await ref.update({
       messages: combined,
       roadmapReady,
       updatedAt: FieldValue.serverTimestamp(),
     });
-  } else {
-    await ref.set({
+    return {
       uid,
+      threadId: ref.id,
+      title: existing.data()!.title ?? "Bagong chat",
+      messages: combined,
+      roadmapReady,
+      extractedAt: existing.data()!.extractedAt ? toDate(existing.data()!.extractedAt) : null,
+      createdAt: toDate(existing.data()!.createdAt),
+      updatedAt: now,
+    };
+  } else {
+    const firstUserMsg = stamped.find(m => m.role === "user");
+    const title = deriveTitle(firstUserMsg?.content ?? "Bagong chat");
+    const combined = stamped.slice(-CHAT_STORAGE_CAP);
+    await ref.set({
+      threadId: ref.id,
+      title,
       messages: combined,
       roadmapReady,
       extractedAt: null,
       createdAt: FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp(),
     });
+    return {
+      uid,
+      threadId: ref.id,
+      title,
+      messages: combined,
+      roadmapReady,
+      extractedAt: null,
+      createdAt: now,
+      updatedAt: now,
+    };
   }
-
-  return {
-    uid,
-    messages: combined,
-    roadmapReady,
-    extractedAt: null,
-    createdAt: now,
-    updatedAt: now,
-  };
 }
 
-export async function clearChatSession(uid: string): Promise<void> {
-  await db().collection("chatSessions").doc(uid).delete();
+export async function deleteChatThread(uid: string, threadId: string): Promise<void> {
+  await threadsCol(uid).doc(threadId).delete();
 }
 
-export async function setChatExtractedAt(uid: string): Promise<void> {
-  const ref = db().collection("chatSessions").doc(uid);
+export async function setThreadExtractedAt(uid: string, threadId: string): Promise<void> {
+  const ref = threadsCol(uid).doc(threadId);
   const existing = await ref.get();
   if (!existing.exists) return;
   await ref.update({ extractedAt: FieldValue.serverTimestamp() });

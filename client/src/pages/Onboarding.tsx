@@ -91,7 +91,7 @@ export default function Onboarding() {
 
   const meQuery = trpc.auth.me.useQuery();
   const profileQuery = trpc.profile.get.useQuery();
-  const chatSessionQuery = trpc.ai.getSession.useQuery();
+  const chatThreadsQuery = trpc.ai.listThreads.useQuery();
   const utils = trpc.useUtils();
 
   const saveProfile = trpc.profile.save.useMutation();
@@ -181,8 +181,10 @@ export default function Onboarding() {
   // — never overwrites existing profile data.
   useEffect(() => {
     if (!hydrated || extractFiredRef.current) return;
-    const session = chatSessionQuery.data;
-    if (!session || session.messages.length < 2) return;
+    const threads = chatThreadsQuery.data;
+    if (!threads || threads.length === 0) return;
+    const hasContent = threads.some(t => t.messageCount >= 2);
+    if (!hasContent) return;
     const p = profileQuery.data;
     const profileHasBiz = !!(p?.businessName || p?.bizBarangay || p?.businessType);
     if (profileHasBiz) {
@@ -227,7 +229,7 @@ export default function Onboarding() {
         }
       },
     });
-  }, [hydrated, chatSessionQuery.data, profileQuery.data, extractFromChat]);
+  }, [hydrated, chatThreadsQuery.data, profileQuery.data, extractFromChat]);
 
   const advanceTo = async (next: number, payload: Record<string, unknown>) => {
     setSavingFlash(false);

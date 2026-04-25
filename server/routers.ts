@@ -7,7 +7,8 @@ import {
   getCommunityPosts, createCommunityPost, voteOnPost, getUserVotes,
   createFeedback, getProfile, upsertProfile, upsertUser,
   getUserByUid, setOnboardingStep, markOnboardingComplete,
-  getChatSession, appendChatMessages, clearChatSession, setChatExtractedAt,
+  getChatThread, listChatThreads, appendThreadMessages, deleteChatThread,
+  setThreadExtractedAt, getMostRecentThread,
 } from "./db";
 import { BARANGAY_FIELDS, renderBarangayClearance } from "./pdf/barangayClearance";
 import { renderTextFallback } from "./pdf/textFallback";
@@ -191,22 +192,43 @@ export const appRouter = router({
 
   // AI
   ai: router({
-    getSession: protectedProcedure.query(async ({ ctx }) => {
-      const session = await getChatSession(ctx.user.uid);
-      if (!session) {
-        return { messages: [], roadmapReady: false };
-      }
-      return {
-        messages: session.messages.map(m => ({ role: m.role, content: m.content })),
-        roadmapReady: session.roadmapReady,
-      };
+    listThreads: protectedProcedure.query(async ({ ctx }) => {
+      const threads = await listChatThreads(ctx.user.uid);
+      return threads.map(t => ({
+        threadId: t.threadId,
+        title: t.title,
+        messageCount: t.messageCount,
+        roadmapReady: t.roadmapReady,
+        updatedAt: t.updatedAt.toISOString(),
+        createdAt: t.createdAt.toISOString(),
+      }));
     }),
 
+    getThread: protectedProcedure
+      .input(z.object({ threadId: z.string().min(1) }))
+      .query(async ({ ctx, input }) => {
+        const thread = await getChatThread(ctx.user.uid, input.threadId);
+        if (!thread) {
+          throw new TRPCError({ code: "NOT_FOUND", message: "Thread not found" });
+        }
+        return {
+          threadId: thread.threadId,
+          title: thread.title,
+          messages: thread.messages.map(m => ({ role: m.role, content: m.content })),
+          roadmapReady: thread.roadmapReady,
+        };
+      }),
+
     chat: protectedProcedure
-      .input(z.object({ content: z.string().min(1).max(4000) }))
+      .input(z.object({
+        content: z.string().min(1).max(4000),
+        threadId: z.string().min(1).optional(),
+      }))
       .mutation(async ({ ctx, input }) => {
-        const session = await getChatSession(ctx.user.uid);
-        const prior = session?.messages ?? [];
+        const existing = input.threadId
+          ? await getChatThread(ctx.user.uid, input.threadId)
+          : null;
+        const prior = existing?.messages ?? [];
         const userMsg = { role: "user" as const, content: input.content };
         const fullHistory = [...prior.map(m => ({ role: m.role, content: m.content })), userMsg];
 
@@ -234,21 +256,34 @@ export const appRouter = router({
         }
 
         const assistantMsg = { role: "assistant" as const, content: assistantText };
-        const sticky = session?.roadmapReady ?? false;
+        const sticky = existing?.roadmapReady ?? false;
         const roadmapReady = sticky || detectRoadmapReady([...fullHistory, assistantMsg]);
 
-        await appendChatMessages(ctx.user.uid, [userMsg, assistantMsg], roadmapReady);
+        const saved = await appendThreadMessages(
+          ctx.user.uid,
+          existing ? input.threadId! : null,
+          [userMsg, assistantMsg],
+          roadmapReady
+        );
 
-        return { content: assistantText, roadmapReady };
+        return {
+          threadId: saved.threadId,
+          title: saved.title,
+          content: assistantText,
+          roadmapReady,
+        };
       }),
 
-    clearSession: protectedProcedure.mutation(async ({ ctx }) => {
-      await clearChatSession(ctx.user.uid);
-      return { success: true } as const;
-    }),
+    deleteThread: protectedProcedure
+      .input(z.object({ threadId: z.string().min(1) }))
+      .mutation(async ({ ctx, input }) => {
+        await deleteChatThread(ctx.user.uid, input.threadId);
+        return { success: true } as const;
+      }),
 
     extractProfile: protectedProcedure
       .input(z.object({
+        threadId: z.string().min(1).optional(),
         messages: z.array(z.object({
           role: z.enum(["user", "assistant"]),
           content: z.string(),
@@ -256,9 +291,17 @@ export const appRouter = router({
       }).optional())
       .mutation(async ({ ctx, input }) => {
         let msgs = input?.messages;
+        let sourceThreadId: string | null = null;
         if (!msgs || msgs.length === 0) {
-          const session = await getChatSession(ctx.user.uid);
-          msgs = (session?.messages ?? []).map(m => ({ role: m.role, content: m.content }));
+          const thread = input?.threadId
+            ? await getChatThread(ctx.user.uid, input.threadId)
+            : await getMostRecentThread(ctx.user.uid);
+          if (thread) {
+            sourceThreadId = thread.threadId;
+            msgs = thread.messages.map(m => ({ role: m.role, content: m.content }));
+          } else {
+            msgs = [];
+          }
         }
         if (msgs.length === 0) return {};
 
@@ -273,7 +316,9 @@ export const appRouter = router({
         try {
           const cleaned = text.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
           const parsed = JSON.parse(cleaned);
-          await setChatExtractedAt(ctx.user.uid).catch(() => {});
+          if (sourceThreadId) {
+            await setThreadExtractedAt(ctx.user.uid, sourceThreadId).catch(() => {});
+          }
           return parsed;
         } catch {
           return {};

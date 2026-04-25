@@ -17,15 +17,28 @@ vi.mock("./_core/llm", () => ({
   }),
 }));
 
-// Mock the db module
-const chatSessionStore = new Map<string, {
+// Mock the db module — multi-thread chat store keyed by `${uid}:${threadId}`
+type ThreadDoc = {
   uid: string;
+  threadId: string;
+  title: string;
   messages: Array<{ role: "user" | "assistant"; content: string; ts: Date }>;
   roadmapReady: boolean;
   extractedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
-}>();
+};
+const chatThreadStore = new Map<string, ThreadDoc>();
+let threadIdCounter = 0;
+
+function threadsForUser(uid: string): ThreadDoc[] {
+  return Array.from(chatThreadStore.values()).filter(t => t.uid === uid);
+}
+
+function deriveTitleMock(s: string): string {
+  const t = s.trim().replace(/\s+/g, " ");
+  return t.length <= 60 ? (t || "Bagong chat") : t.slice(0, 59).trimEnd() + "…";
+}
 
 vi.mock("./db", () => ({
   getCommunityPosts: vi.fn().mockResolvedValue([
@@ -54,33 +67,69 @@ vi.mock("./db", () => ({
   getUserByUid: vi.fn().mockResolvedValue(null),
   setOnboardingStep: vi.fn().mockResolvedValue(undefined),
   markOnboardingComplete: vi.fn().mockResolvedValue(undefined),
-  getChatSession: vi.fn(async (uid: string) => chatSessionStore.get(uid) ?? null),
-  appendChatMessages: vi.fn(async (
+  getChatThread: vi.fn(async (uid: string, threadId: string) => {
+    return chatThreadStore.get(`${uid}:${threadId}`) ?? null;
+  }),
+  listChatThreads: vi.fn(async (uid: string) => {
+    return threadsForUser(uid)
+      .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())
+      .map(t => ({
+        threadId: t.threadId,
+        title: t.title,
+        messageCount: t.messages.length,
+        roadmapReady: t.roadmapReady,
+        updatedAt: t.updatedAt,
+        createdAt: t.createdAt,
+      }));
+  }),
+  getMostRecentThread: vi.fn(async (uid: string) => {
+    const all = threadsForUser(uid).sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
+    return all[0] ?? null;
+  }),
+  appendThreadMessages: vi.fn(async (
     uid: string,
+    threadId: string | null,
     msgs: Array<{ role: "user" | "assistant"; content: string }>,
     roadmapReady: boolean,
   ) => {
     const now = new Date();
-    const prior = chatSessionStore.get(uid)?.messages ?? [];
     const stamped = msgs.map(m => ({ ...m, ts: now }));
-    const combined = [...prior, ...stamped].slice(-40);
-    const next = {
+    const key = threadId ? `${uid}:${threadId}` : null;
+    const existing = key ? chatThreadStore.get(key) : null;
+    if (existing) {
+      const combined = [...existing.messages, ...stamped].slice(-40);
+      const updated: ThreadDoc = {
+        ...existing,
+        messages: combined,
+        roadmapReady,
+        updatedAt: now,
+      };
+      chatThreadStore.set(key!, updated);
+      return updated;
+    }
+    threadIdCounter += 1;
+    const newId = `t${threadIdCounter}`;
+    const firstUser = stamped.find(m => m.role === "user");
+    const doc: ThreadDoc = {
       uid,
-      messages: combined,
+      threadId: newId,
+      title: deriveTitleMock(firstUser?.content ?? "Bagong chat"),
+      messages: stamped.slice(-40),
       roadmapReady,
       extractedAt: null,
-      createdAt: chatSessionStore.get(uid)?.createdAt ?? now,
+      createdAt: now,
       updatedAt: now,
     };
-    chatSessionStore.set(uid, next);
-    return next;
+    chatThreadStore.set(`${uid}:${newId}`, doc);
+    return doc;
   }),
-  clearChatSession: vi.fn(async (uid: string) => {
-    chatSessionStore.delete(uid);
+  deleteChatThread: vi.fn(async (uid: string, threadId: string) => {
+    chatThreadStore.delete(`${uid}:${threadId}`);
   }),
-  setChatExtractedAt: vi.fn(async (uid: string) => {
-    const s = chatSessionStore.get(uid);
-    if (s) chatSessionStore.set(uid, { ...s, extractedAt: new Date() });
+  setThreadExtractedAt: vi.fn(async (uid: string, threadId: string) => {
+    const k = `${uid}:${threadId}`;
+    const t = chatThreadStore.get(k);
+    if (t) chatThreadStore.set(k, { ...t, extractedAt: new Date() });
   }),
 }));
 
@@ -101,34 +150,50 @@ function createAuthContext(): TrpcContext {
 }
 
 describe("AI Chat Router", () => {
-  it("getSession returns empty session when no doc exists", async () => {
-    chatSessionStore.clear();
+  it("listThreads returns empty when user has no chats", async () => {
+    chatThreadStore.clear();
     const caller = appRouter.createCaller(createAuthContext());
-    const result = await caller.ai.getSession();
-    expect(result).toEqual({ messages: [], roadmapReady: false });
+    const result = await caller.ai.listThreads();
+    expect(result).toEqual([]);
   });
 
-  it("ai.chat persists messages and returns roadmapReady=true for biz+locality", async () => {
-    chatSessionStore.clear();
+  it("ai.chat without threadId creates a new thread and returns its id", async () => {
+    chatThreadStore.clear();
     const caller = appRouter.createCaller(createAuthContext());
 
     const result = await caller.ai.chat({
       content: "Gusto ko mag-open ng sari-sari store sa Tondo, Manila",
     });
 
-    expect(typeof result.content).toBe("string");
-    expect(result.content.length).toBeGreaterThan(0);
+    expect(result.threadId).toMatch(/^t\d+$/);
+    expect(result.title.length).toBeGreaterThan(0);
     expect(result.roadmapReady).toBe(true);
 
-    const stored = chatSessionStore.get("test-user-001");
+    const stored = chatThreadStore.get(`test-user-001:${result.threadId}`);
     expect(stored?.messages.length).toBe(2);
     expect(stored?.messages[0].role).toBe("user");
     expect(stored?.messages[1].role).toBe("assistant");
     expect(stored?.roadmapReady).toBe(true);
   });
 
+  it("ai.chat with threadId appends to that thread", async () => {
+    chatThreadStore.clear();
+    const caller = appRouter.createCaller(createAuthContext());
+
+    const first = await caller.ai.chat({ content: "Sari-sari store sa Tondo" });
+    const second = await caller.ai.chat({
+      content: "salamat!",
+      threadId: first.threadId,
+    });
+
+    expect(second.threadId).toBe(first.threadId);
+    const stored = chatThreadStore.get(`test-user-001:${first.threadId}`);
+    expect(stored?.messages.length).toBe(4);
+    expect(second.roadmapReady).toBe(true);
+  });
+
   it("ai.chat returns roadmapReady=false when content lacks signals", async () => {
-    chatSessionStore.clear();
+    chatThreadStore.clear();
     const caller = appRouter.createCaller(createAuthContext());
 
     const result = await caller.ai.chat({ content: "hello" });
@@ -136,40 +201,87 @@ describe("AI Chat Router", () => {
     expect(result.roadmapReady).toBe(false);
   });
 
-  it("ai.chat keeps roadmapReady sticky once true", async () => {
-    chatSessionStore.clear();
+  it("ai.chat keeps roadmapReady sticky once true within a thread", async () => {
+    chatThreadStore.clear();
     const caller = appRouter.createCaller(createAuthContext());
 
-    await caller.ai.chat({ content: "Sari-sari store sa Tondo" });
-    const followup = await caller.ai.chat({ content: "salamat!" });
+    const first = await caller.ai.chat({ content: "Sari-sari store sa Tondo" });
+    const followup = await caller.ai.chat({
+      content: "salamat!",
+      threadId: first.threadId,
+    });
 
     expect(followup.roadmapReady).toBe(true);
   });
 
-  it("ai.extractProfile falls back to Firestore session when input omitted", async () => {
-    chatSessionStore.clear();
+  it("ai.chat without threadId always creates a fresh thread (default fresh)", async () => {
+    chatThreadStore.clear();
+    const caller = appRouter.createCaller(createAuthContext());
+
+    const a = await caller.ai.chat({ content: "first chat" });
+    const b = await caller.ai.chat({ content: "second chat" });
+
+    expect(a.threadId).not.toBe(b.threadId);
+    expect(threadsForUser("test-user-001").length).toBe(2);
+  });
+
+  it("ai.getThread returns the messages of a specific thread", async () => {
+    chatThreadStore.clear();
+    const caller = appRouter.createCaller(createAuthContext());
+
+    const created = await caller.ai.chat({ content: "Sari-sari store sa Tondo" });
+    const got = await caller.ai.getThread({ threadId: created.threadId });
+
+    expect(got.threadId).toBe(created.threadId);
+    expect(got.messages.length).toBe(2);
+    expect(got.roadmapReady).toBe(true);
+  });
+
+  it("ai.getThread throws NOT_FOUND for unknown threadId", async () => {
+    chatThreadStore.clear();
+    const caller = appRouter.createCaller(createAuthContext());
+
+    await expect(
+      caller.ai.getThread({ threadId: "does-not-exist" })
+    ).rejects.toThrowError(expect.objectContaining({ code: "NOT_FOUND" }));
+  });
+
+  it("ai.listThreads returns most-recent first", async () => {
+    chatThreadStore.clear();
+    const caller = appRouter.createCaller(createAuthContext());
+
+    const a = await caller.ai.chat({ content: "first" });
+    // small delay so updatedAt differs
+    await new Promise(r => setTimeout(r, 5));
+    const b = await caller.ai.chat({ content: "second" });
+
+    const list = await caller.ai.listThreads();
+    expect(list.length).toBe(2);
+    expect(list[0].threadId).toBe(b.threadId);
+    expect(list[1].threadId).toBe(a.threadId);
+  });
+
+  it("ai.deleteThread removes the thread", async () => {
+    chatThreadStore.clear();
+    const caller = appRouter.createCaller(createAuthContext());
+
+    const created = await caller.ai.chat({ content: "Sari-sari store sa Tondo" });
+    expect(chatThreadStore.has(`test-user-001:${created.threadId}`)).toBe(true);
+
+    await caller.ai.deleteThread({ threadId: created.threadId });
+    expect(chatThreadStore.has(`test-user-001:${created.threadId}`)).toBe(false);
+  });
+
+  it("ai.extractProfile falls back to most-recent thread when input omitted", async () => {
+    chatThreadStore.clear();
     const caller = appRouter.createCaller(createAuthContext());
 
     await caller.ai.chat({ content: "Sari-sari store sa Tondo" });
     const result = await caller.ai.extractProfile();
 
-    // Mocked LLM returns the canned Taglish string, which JSON.parse fails on,
-    // so the procedure returns {} — but the call should not throw and should
-    // have read from the persisted session.
+    // Mocked LLM returns canned Taglish — JSON.parse fails → returns {}.
     expect(result).toEqual({});
-    const stored = chatSessionStore.get("test-user-001");
-    expect(stored?.messages.length).toBeGreaterThan(0);
-  });
-
-  it("ai.clearSession wipes the doc", async () => {
-    chatSessionStore.clear();
-    const caller = appRouter.createCaller(createAuthContext());
-
-    await caller.ai.chat({ content: "Sari-sari store sa Tondo" });
-    expect(chatSessionStore.has("test-user-001")).toBe(true);
-
-    await caller.ai.clearSession();
-    expect(chatSessionStore.has("test-user-001")).toBe(false);
+    expect(threadsForUser("test-user-001").length).toBe(1);
   });
 });
 
