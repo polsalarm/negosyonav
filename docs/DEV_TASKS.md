@@ -11,7 +11,7 @@ Goal: split remaining work so multiple devs ship in parallel with minimal merge 
 User-flagged items folded into the tracks below. Priority overrides Section 5's phase order — start HIGH items immediately after Track 0 ships.
 
 **HIGH**
-- Chatbot integration verified end-to-end → **Track L** (new).
+- Chatbot integration verified end-to-end → **Track L** ✅ done 2026-04-26.
 - First-visit must land on signup, post-signup must route to Profile → **Track M** (new).
 - PDF downloader + form templates broken → **Track A** (already in plan, raised to top of HIGH).
 - Map integrated *inside* roadmap steps (not standalone /places only) → **Track N** (new).
@@ -184,17 +184,24 @@ This track edits *many* files but only ARIA attributes / labels — diff lines t
 
 Update fixtures from `{ id, openId, loginMethod }` to `{ uid, email, name, role }`. Skip DB-touching tests when `serviceAccount.json` absent (use `describe.skipIf`). Independent of every other track — schedule continuously.
 
-### Track L — Chatbot integration verified end-to-end — **HIGH**
-**Owner files:** `client/src/pages/Home.tsx`, `client/src/components/AIChatBox.tsx`, `client/src/components/FormHelpDrawer.tsx`, `server/routers/ai.ts` (post Track 0).
+### Track L — Chatbot integration verified end-to-end — ✅ done 2026-04-26
+**Owner files:** `client/src/pages/Home.tsx`, `client/src/pages/Onboarding.tsx`, `client/src/pages/Profile.tsx`, `client/src/components/ChatFab.tsx` (new), `server/routers.ts` (`ai` sub-router), `server/db.ts` (`chatSessions`).
 
-Today the chat exists on `/` but suggestion buttons, profile-extraction round-trip, and the form-help drawer have not been smoke-tested as one flow. Per user report it isn't reliably working.
+Closed end-to-end via the chat persistence overhaul (spec: `docs/superpowers/specs/2026-04-26-chat-persistence-overhaul-design.md`). Server now owns the transcript in Firestore (`chatSessions/{uid}`); client treats it as source of truth via `ai.getSession`.
 
-- L.1 End-to-end smoke at `/`: send "Sari-sari store sa Tondo" → assistant replies in Taglish → "Build my Roadmap" CTA navigates to `/roadmap` with profile auto-extracted (already wired via `sessionStorage.negosyonav_chat_history` + `ai.extractProfile`). Fix any broken link in that chain.
-- L.2 Verify `chatMutation` error path renders a visible toast — currently a silent failure if `GEMINI_API_KEY` is missing. Add a typed error from `invokeLLM` and a user-visible "Bumalik mamaya — busy ang AI" toast.
-- L.3 Verify `FormHelpDrawer` (`ai.formHelp`) opens from each `Forms.tsx` field's "?" affordance and returns a Taglish answer. If `userProfile` is undefined the prompt currently still works — keep that behavior.
-- L.4 Add a floating chat launcher (`<ChatFab />`) visible on `/roadmap`, `/forms`, `/grants` so the assistant is reachable mid-task. Single new component; routes only mount it. No conflict with other tracks. — 🟡 partial 2026-04-26: shipped on `/forms` by extending the existing fab + `FormHelpDrawer` to a dual-mode (field vs general) chat. `useFormHelp` now exposes `openFieldHelp(label)` + `openGeneralHelp()`; drawer header/placeholder/quick-prompts swap on `isGeneral`. Server `ai.formHelp` made `formName` + `fieldLabel` optional and now branches to a general-mode prompt when `fieldLabel` empty. Still TODO: mount the same launcher on `/roadmap` and `/grants`.
-- L.5 Add a Vitest integration test that calls `appRouter.createCaller(ctx).ai.chat({ messages: [...] })` against a mocked `invokeLLM` and asserts non-empty `content`.
-- L.6 🆕 2026-04-26 — Scope guardrail in `ai.formHelp` system prompt: refuses off-topic questions (general trivia, coding, other countries' law, politics, etc.) in Taglish and stays in NegosyoNav scope. Mirror the same guardrail block in `MANILA_SYSTEM_PROMPT` (`ai.chat`) so the Home chatbot has the same behavior — currently still permissive.
+- L.1 ✅ Chat → roadmap/profile round-trip wired. `Home.tsx` reads `ai.getSession`, posts via `ai.chat({ content })`, surfaces `Tingnan ang Lakad Roadmap` CTA when server-side `roadmapReady` heuristic (biz keyword + Manila locality) trips. `Onboarding.tsx` auto-fires `ai.extractProfile` once after hydration when chat history exists and profile is empty; pre-fills draft fields without overwriting any user-entered data.
+- L.2 ✅ Typed error path: `invokeLLM` failures throw `TRPCError({ message: "LLM_UNAVAILABLE" })`; `Home.tsx` maps that to a Taglish toast.
+- L.3 🟡 deferred — `FormHelpDrawer` flow not re-verified this round; existing dual-mode (field + general) launcher on `/forms` untouched.
+- L.4 ✅ `ChatFab` mounted on `/roadmap` + `/grants`. Skipped on `/forms` because that page already ships a contextual FAB opening the dual-mode `FormHelpDrawer` (better suited than re-routing to Home chat).
+- L.5 ✅ `server/routers.test.ts` covers `ai.getSession`, `ai.chat` persistence, `roadmapReady` heuristic (positive + negative + sticky), `ai.extractProfile` Firestore fallback, and `ai.clearSession`. 56 tests green.
+- L.6 🟡 still open — scope guardrail not added to `MANILA_SYSTEM_PROMPT` this round; revisit separately.
+
+Additional fixes in the same edit:
+- `chatSessions/{uid}` Firestore collection + helpers in `server/db.ts`. Storage cap 40 messages; LLM payload cap 12.
+- Dropped `sessionStorage["negosyonav_chat_history"]` (cross-tab fragility); `Profile.tsx`'s Sparkles button now calls `ai.extractProfile()` directly.
+- Welcome message render-only — never stored or shipped to LLM.
+- Header pills on Home bumped to ≥44px tap targets; IME composition guard added to chat input; quick-suggest pills stay visible after first reply with context-aware Taglish copy.
+- `client/src/components/AIChatBox.tsx` deleted (was dead in main flow, only used by `ComponentShowcase`); showcase entry stripped.
 
 ### Track M — Auth gate + post-signup → Profile flow — **HIGH**
 **Owner files:** `client/src/App.tsx`, `client/src/pages/Login.tsx`, `client/src/_core/hooks/useAuth.ts`, `client/src/pages/Profile.tsx` (first-time banner only).

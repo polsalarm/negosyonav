@@ -13,6 +13,7 @@ import {
   ArrowLeft, Award, CheckCircle2, XCircle, ChevronDown, ChevronUp,
   ExternalLink, AlertTriangle, Sparkles, Loader2,
 } from "lucide-react";
+import ChatFab from "@/components/ChatFab";
 
 export default function Grants() {
   const [, navigate] = useLocation();
@@ -182,6 +183,8 @@ export default function Grants() {
           </Button>
         </div>
       </div>
+
+      <ChatFab />
     </div>
   );
 }

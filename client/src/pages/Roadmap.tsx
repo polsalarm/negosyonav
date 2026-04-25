@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { manilaData, type RegistrationStep } from "@/data/manilaData";
 import { StepOfficeCard } from "@/components/StepOfficeCard";
+import ChatFab from "@/components/ChatFab";
 import { toast } from "sonner";
 
 function formatCurrency(amount: number): string {
@@ -574,6 +575,8 @@ export default function Roadmap() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      <ChatFab />
     </div>
   );
 }
