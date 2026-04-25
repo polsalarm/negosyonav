@@ -80,7 +80,7 @@ const SEED_POSTS = [
     updatedAt: new Date("2026-04-18T10:00:00Z"),
   },
   {
-    id: -3,
+    id: "seed-3",
     userId: 0,
     authorName: "Maria Santos",
     lguTag: "manila_city",
@@ -94,7 +94,7 @@ const SEED_POSTS = [
     updatedAt: new Date("2026-04-15T14:00:00Z"),
   },
   {
-    id: -4,
+    id: "seed-4",
     userId: 0,
     authorName: "Tatay Jun",
     lguTag: "manila_city",
