@@ -229,13 +229,16 @@ export async function upsertProfile(userId: string, data: Partial<FirestoreProfi
 
 // ─── Community Posts ───────────────────────────────────────────────────────────
 
-export async function getCommunityPosts(lguTag?: string, limit = 50): Promise<FirestorePost[]> {
-  const col = db().collection("community_posts");
-  const query = lguTag
-    ? col.where("lguTag", "==", lguTag).orderBy("createdAt", "desc").limit(limit)
-    : col.orderBy("createdAt", "desc").limit(limit);
+export async function getCommunityPosts(
+  opts: { lguTag?: string; stepNumber?: number; limit?: number } = {}
+): Promise<FirestorePost[]> {
+  const { lguTag, stepNumber, limit = 50 } = opts;
+  let q: FirebaseFirestore.Query = db().collection("community_posts");
+  if (lguTag) q = q.where("lguTag", "==", lguTag);
+  if (typeof stepNumber === "number") q = q.where("stepNumber", "==", stepNumber);
+  q = q.orderBy("createdAt", "desc").limit(limit);
 
-  const snapshot = await query.get();
+  const snapshot = await q.get();
   return snapshot.docs.map(doc => {
     const d = doc.data();
     return {
@@ -249,7 +252,9 @@ export async function getCommunityPosts(lguTag?: string, limit = 50): Promise<Fi
       upvotes: d.upvotes ?? 0,
       downvotes: d.downvotes ?? 0,
       isFlagged: d.isFlagged ?? false,
+      stepNumber: typeof d.stepNumber === "number" ? d.stepNumber : undefined,
       commentCount: typeof d.commentCount === "number" ? d.commentCount : 0,
+      seed: d.seed === true,
       createdAt: toDate(d.createdAt),
       updatedAt: toDate(d.updatedAt),
     };

@@ -508,7 +508,7 @@ Mga patakaran sa sagot:
     list: protectedProcedure
       .input(z.object({ lguTag: z.string().optional() }).optional())
       .query(async ({ input }) => {
-        return getCommunityPosts(input?.lguTag);
+        return getCommunityPosts(input ?? {});
       }),
 
     create: protectedProcedure
