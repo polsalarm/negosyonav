@@ -114,3 +114,6 @@ client/public/__manus__/version.json
 
 # Firebase service account — GitHub blocks this (share directly with collaborators)
 serviceAccount.json
+
+# Local LLM eval fixtures (prompt-eval agent)
+server/__evals__/

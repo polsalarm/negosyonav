@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:dti.gov.ph)",
+      "WebFetch(domain:bir.gov.ph)",
+      "WebFetch(domain:manila.gov.ph)",
+      "WebFetch(domain:dswd.gov.ph)"
+    ]
+  }
+}
