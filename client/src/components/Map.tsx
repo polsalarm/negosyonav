@@ -1,6 +1,6 @@
 /// <reference types="@types/google.maps" />
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import { loadGoogleMaps } from "@/lib/maps";
 
@@ -22,7 +22,7 @@ export function MapView({
 }: MapViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<google.maps.Map | null>(null);
-  const errorRef = useRef<HTMLDivElement>(null);
+  const [loadState, setLoadState] = useState<"loading" | "ready" | "error">("loading");
 
   useEffect(() => {
     let cancelled = false;
@@ -39,10 +39,12 @@ export function MapView({
           clickableIcons: false,
         });
         onMapReady?.(mapRef.current);
+        setLoadState("ready");
       })
       .catch((err) => {
+        if (cancelled) return;
         console.error("[MapView] failed to load:", err);
-        if (errorRef.current) errorRef.current.style.display = "flex";
+        setLoadState("error");
       });
     return () => {
       cancelled = true;
@@ -52,23 +54,33 @@ export function MapView({
   }, []);
 
   return (
-    <div className={cn("relative w-full h-[180px] rounded-xl overflow-hidden bg-muted", className)}>
-      <div ref={containerRef} className="w-full h-full" aria-label={ariaLabel} role="application" />
-      <div
-        ref={errorRef}
-        style={{ display: "none" }}
-        className="absolute inset-0 flex items-center justify-center bg-muted text-xs text-muted-foreground p-3 text-center"
-      >
-        Hindi ma-load ang map.{" "}
-        <a
-          href={`https://www.google.com/maps/search/?api=1&query=${center.lat},${center.lng}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-teal underline ml-1"
-        >
-          Open in Google Maps
-        </a>
-      </div>
+    <div
+      className={cn(
+        "relative w-full h-[180px] rounded-xl overflow-hidden bg-muted",
+        className,
+      )}
+    >
+      {loadState !== "error" && (
+        <div
+          ref={containerRef}
+          className="w-full h-full"
+          aria-label={ariaLabel}
+          role="application"
+        />
+      )}
+      {loadState === "error" && (
+        <div className="absolute inset-0 flex items-center justify-center bg-muted text-xs text-muted-foreground p-3 text-center">
+          Hindi ma-load ang map.{" "}
+          <a
+            href={`https://www.google.com/maps/search/?api=1&query=${center.lat},${center.lng}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-teal underline ml-1"
+          >
+            Open in Google Maps
+          </a>
+        </div>
+      )}
     </div>
   );
 }
