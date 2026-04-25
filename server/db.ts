@@ -1,201 +1,278 @@
-import { eq, desc, and, sql } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users, communityPosts, InsertCommunityPost, postVotes, feedback, InsertFeedback, negosyanteProfiles, InsertNegosyanteProfile } from "../drizzle/schema";
-import { ENV } from './_core/env';
+import { adminDb } from "./_core/firebaseAdmin";
+import { FieldValue } from "firebase-admin/firestore";
 
-let _db: ReturnType<typeof drizzle> | null = null;
+// ─── Types ─────────────────────────────────────────────────────────────────────
 
-// Lazily create the drizzle instance so local tooling can run without a DB.
-export async function getDb() {
-  if (!_db && process.env.DATABASE_URL) {
-    try {
-      _db = drizzle(process.env.DATABASE_URL);
-    } catch (error) {
-      console.warn("[Database] Failed to connect:", error);
-      _db = null;
-    }
-  }
-  return _db;
+export type FirestoreUser = {
+  uid: string;
+  name: string | null;
+  email: string | null;
+  loginMethod: string | null;
+  role: "user" | "admin";
+  createdAt: Date;
+  lastSignedIn: Date;
+};
+
+export type FirestoreProfile = {
+  userId: string;
+  firstName?: string;
+  middleName?: string;
+  lastName?: string;
+  suffix?: string;
+  dateOfBirth?: string;
+  gender?: "male" | "female";
+  civilStatus?: "single" | "married" | "widowed" | "legally_separated";
+  citizenship?: string;
+  placeOfBirth?: string;
+  mothersName?: string;
+  fathersName?: string;
+  tin?: string;
+  philsysId?: string;
+  mobileNumber?: string;
+  phoneNumber?: string;
+  emailAddress?: string;
+  homeBuilding?: string;
+  homeStreet?: string;
+  homeBarangay?: string;
+  homeCity?: string;
+  homeProvince?: string;
+  homeRegion?: string;
+  homeZipCode?: string;
+  businessName?: string;
+  businessNameOption2?: string;
+  businessNameOption3?: string;
+  businessType?: string;
+  businessActivity?: string;
+  territorialScope?: "barangay" | "city" | "regional" | "national";
+  bizBuilding?: string;
+  bizStreet?: string;
+  bizBarangay?: string;
+  bizCity?: string;
+  bizProvince?: string;
+  bizRegion?: string;
+  bizZipCode?: string;
+  capitalization?: number;
+  expectedAnnualSales?: "micro" | "small" | "medium" | "large";
+  numberOfEmployees?: number;
+  preferTaxOption?: "graduated" | "eight_percent";
+};
+
+export type FirestorePost = {
+  id: string;
+  userId: string;
+  authorName: string;
+  lguTag: string;
+  category: "tip" | "warning" | "question" | "experience";
+  title: string;
+  content: string;
+  upvotes: number;
+  downvotes: number;
+  isFlagged: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+export type FirestoreFeedback = {
+  userId?: string;
+  feedbackType: "outdated_info" | "incorrect_data" | "suggestion" | "bug_report" | "general";
+  stepNumber?: number;
+  lguId: string;
+  message: string;
+  status: "pending" | "reviewed" | "resolved";
+  createdAt: Date;
+};
+
+// ─── Helpers ───────────────────────────────────────────────────────────────────
+
+function db() {
+  if (!adminDb) throw new Error("Firestore not initialized");
+  return adminDb;
 }
 
-export async function upsertUser(user: InsertUser): Promise<void> {
-  if (!user.openId) {
-    throw new Error("User openId is required for upsert");
-  }
+function toDate(v: unknown): Date {
+  if (v instanceof Date) return v;
+  // Firestore Timestamp
+  if (v && typeof v === "object" && "toDate" in v) return (v as { toDate: () => Date }).toDate();
+  return new Date();
+}
 
-  const db = await getDb();
-  if (!db) {
-    console.warn("[Database] Cannot upsert user: database not available");
-    return;
-  }
+// ─── Users ─────────────────────────────────────────────────────────────────────
 
-  try {
-    const values: InsertUser = {
-      openId: user.openId,
-    };
-    const updateSet: Record<string, unknown> = {};
+export async function upsertUser(data: {
+  uid: string;
+  name?: string | null;
+  email?: string | null;
+  loginMethod?: string | null;
+}): Promise<void> {
+  const ref = db().collection("users").doc(data.uid);
+  const existing = await ref.get();
 
-    const textFields = ["name", "email", "loginMethod"] as const;
-    type TextField = (typeof textFields)[number];
-
-    const assignNullable = (field: TextField) => {
-      const value = user[field];
-      if (value === undefined) return;
-      const normalized = value ?? null;
-      values[field] = normalized;
-      updateSet[field] = normalized;
-    };
-
-    textFields.forEach(assignNullable);
-
-    if (user.lastSignedIn !== undefined) {
-      values.lastSignedIn = user.lastSignedIn;
-      updateSet.lastSignedIn = user.lastSignedIn;
-    }
-    if (user.role !== undefined) {
-      values.role = user.role;
-      updateSet.role = user.role;
-    } else if (user.openId === ENV.ownerOpenId) {
-      values.role = 'admin';
-      updateSet.role = 'admin';
-    }
-
-    if (!values.lastSignedIn) {
-      values.lastSignedIn = new Date();
-    }
-
-    if (Object.keys(updateSet).length === 0) {
-      updateSet.lastSignedIn = new Date();
-    }
-
-    await db.insert(users).values(values).onDuplicateKeyUpdate({
-      set: updateSet,
+  if (existing.exists) {
+    await ref.update({
+      ...(data.name !== undefined && { name: data.name }),
+      ...(data.email !== undefined && { email: data.email }),
+      lastSignedIn: FieldValue.serverTimestamp(),
     });
-  } catch (error) {
-    console.error("[Database] Failed to upsert user:", error);
-    throw error;
+  } else {
+    await ref.set({
+      uid: data.uid,
+      name: data.name ?? null,
+      email: data.email ?? null,
+      loginMethod: data.loginMethod ?? "email",
+      role: "user",
+      createdAt: FieldValue.serverTimestamp(),
+      lastSignedIn: FieldValue.serverTimestamp(),
+    });
   }
 }
 
-export async function getUserByOpenId(openId: string) {
-  const db = await getDb();
-  if (!db) {
-    console.warn("[Database] Cannot get user: database not available");
-    return undefined;
+export async function getUserByUid(uid: string): Promise<FirestoreUser | null> {
+  const doc = await db().collection("users").doc(uid).get();
+  if (!doc.exists) return null;
+  const d = doc.data()!;
+  return {
+    uid,
+    name: d.name ?? null,
+    email: d.email ?? null,
+    loginMethod: d.loginMethod ?? null,
+    role: d.role ?? "user",
+    createdAt: toDate(d.createdAt),
+    lastSignedIn: toDate(d.lastSignedIn),
+  };
+}
+
+// ─── Negosyante Profiles ───────────────────────────────────────────────────────
+
+export async function getProfile(userId: string): Promise<FirestoreProfile | null> {
+  const doc = await db().collection("profiles").doc(userId).get();
+  if (!doc.exists) return null;
+  return { ...(doc.data() as FirestoreProfile), userId };
+}
+
+export async function upsertProfile(userId: string, data: Partial<FirestoreProfile>): Promise<{ action: "created" | "updated" }> {
+  const ref = db().collection("profiles").doc(userId);
+  const existing = await ref.get();
+
+  const clean = Object.fromEntries(
+    Object.entries(data).filter(([, v]) => v !== undefined)
+  );
+
+  if (existing.exists) {
+    await ref.update({ ...clean, updatedAt: FieldValue.serverTimestamp() });
+    return { action: "updated" };
+  } else {
+    await ref.set({ ...clean, userId, createdAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp() });
+    return { action: "created" };
   }
-
-  const result = await db.select().from(users).where(eq(users.openId, openId)).limit(1);
-
-  return result.length > 0 ? result[0] : undefined;
 }
 
-// ===== Community Posts =====
+// ─── Community Posts ───────────────────────────────────────────────────────────
 
-export async function getCommunityPosts(lguTag?: string, limit = 50) {
-  const db = await getDb();
-  if (!db) return [];
+export async function getCommunityPosts(lguTag?: string, limit = 50): Promise<FirestorePost[]> {
+  const col = db().collection("community_posts");
+  const query = lguTag
+    ? col.where("lguTag", "==", lguTag).orderBy("createdAt", "desc").limit(limit)
+    : col.orderBy("createdAt", "desc").limit(limit);
 
-  if (lguTag) {
-    return db.select().from(communityPosts)
-      .where(eq(communityPosts.lguTag, lguTag))
-      .orderBy(desc(communityPosts.createdAt))
-      .limit(limit);
-  }
-  return db.select().from(communityPosts)
-    .orderBy(desc(communityPosts.createdAt))
-    .limit(limit);
+  const snapshot = await query.get();
+  return snapshot.docs.map(doc => {
+    const d = doc.data();
+    return {
+      id: doc.id,
+      userId: d.userId,
+      authorName: d.authorName,
+      lguTag: d.lguTag,
+      category: d.category,
+      title: d.title,
+      content: d.content,
+      upvotes: d.upvotes ?? 0,
+      downvotes: d.downvotes ?? 0,
+      isFlagged: d.isFlagged ?? false,
+      createdAt: toDate(d.createdAt),
+      updatedAt: toDate(d.updatedAt),
+    };
+  });
 }
 
-export async function createCommunityPost(post: InsertCommunityPost) {
-  const db = await getDb();
-  if (!db) throw new Error("Database not available");
-  return db.insert(communityPosts).values(post);
+export async function createCommunityPost(post: {
+  userId: string;
+  authorName: string;
+  title: string;
+  content: string;
+  category: "tip" | "warning" | "question" | "experience";
+  lguTag: string;
+}): Promise<void> {
+  await db().collection("community_posts").add({
+    ...post,
+    upvotes: 0,
+    downvotes: 0,
+    isFlagged: false,
+    createdAt: FieldValue.serverTimestamp(),
+    updatedAt: FieldValue.serverTimestamp(),
+  });
 }
 
-export async function voteOnPost(postId: number, userId: number, voteType: "up" | "down") {
-  const db = await getDb();
-  if (!db) throw new Error("Database not available");
+export async function voteOnPost(
+  postId: string,
+  userId: string,
+  voteType: "up" | "down"
+): Promise<{ action: "voted" | "removed" | "switched" }> {
+  const voteDocId = `${userId}_${postId}`;
+  const voteRef = db().collection("post_votes").doc(voteDocId);
+  const postRef = db().collection("community_posts").doc(postId);
 
-  const existing = await db.select().from(postVotes)
-    .where(and(eq(postVotes.postId, postId), eq(postVotes.userId, userId)))
-    .limit(1);
+  const existingVote = await voteRef.get();
 
-  if (existing.length > 0) {
-    const existingVote = existing[0];
-    if (existingVote.voteType === voteType) {
-      await db.delete(postVotes).where(eq(postVotes.id, existingVote.id));
-      if (voteType === "up") {
-        await db.update(communityPosts).set({ upvotes: sql`${communityPosts.upvotes} - 1` }).where(eq(communityPosts.id, postId));
-      } else {
-        await db.update(communityPosts).set({ downvotes: sql`${communityPosts.downvotes} - 1` }).where(eq(communityPosts.id, postId));
-      }
-      return { action: "removed" as const };
+  if (existingVote.exists) {
+    const prev = existingVote.data()!.voteType as "up" | "down";
+
+    if (prev === voteType) {
+      // Same vote → remove
+      await voteRef.delete();
+      await postRef.update({
+        [voteType === "up" ? "upvotes" : "downvotes"]: FieldValue.increment(-1),
+      });
+      return { action: "removed" };
     } else {
-      await db.update(postVotes).set({ voteType }).where(eq(postVotes.id, existingVote.id));
-      if (voteType === "up") {
-        await db.update(communityPosts).set({
-          upvotes: sql`${communityPosts.upvotes} + 1`,
-          downvotes: sql`${communityPosts.downvotes} - 1`,
-        }).where(eq(communityPosts.id, postId));
-      } else {
-        await db.update(communityPosts).set({
-          upvotes: sql`${communityPosts.upvotes} - 1`,
-          downvotes: sql`${communityPosts.downvotes} + 1`,
-        }).where(eq(communityPosts.id, postId));
-      }
-      return { action: "switched" as const };
+      // Different vote → switch
+      await voteRef.update({ voteType });
+      await postRef.update({
+        [voteType === "up" ? "upvotes" : "downvotes"]: FieldValue.increment(1),
+        [voteType === "up" ? "downvotes" : "upvotes"]: FieldValue.increment(-1),
+      });
+      return { action: "switched" };
     }
   }
 
-  await db.insert(postVotes).values({ postId, userId, voteType });
-  if (voteType === "up") {
-    await db.update(communityPosts).set({ upvotes: sql`${communityPosts.upvotes} + 1` }).where(eq(communityPosts.id, postId));
-  } else {
-    await db.update(communityPosts).set({ downvotes: sql`${communityPosts.downvotes} + 1` }).where(eq(communityPosts.id, postId));
-  }
-  return { action: "voted" as const };
+  await voteRef.set({ postId, userId, voteType, createdAt: FieldValue.serverTimestamp() });
+  await postRef.update({
+    [voteType === "up" ? "upvotes" : "downvotes"]: FieldValue.increment(1),
+  });
+  return { action: "voted" };
 }
 
-export async function getUserVotes(userId: number) {
-  const db = await getDb();
-  if (!db) return [];
-  return db.select().from(postVotes).where(eq(postVotes.userId, userId));
+export async function getUserVotes(userId: string): Promise<Array<{ postId: string; voteType: "up" | "down" }>> {
+  const snapshot = await db().collection("post_votes")
+    .where("userId", "==", userId)
+    .get();
+  return snapshot.docs.map(doc => ({
+    postId: doc.data().postId,
+    voteType: doc.data().voteType,
+  }));
 }
 
-// ===== Negosyante Profiles =====
+// ─── Feedback ──────────────────────────────────────────────────────────────────
 
-export async function getProfile(userId: number) {
-  const db = await getDb();
-  if (!db) return null;
-  const result = await db.select().from(negosyanteProfiles).where(eq(negosyanteProfiles.userId, userId)).limit(1);
-  return result.length > 0 ? result[0] : null;
-}
-
-export async function upsertProfile(userId: number, data: Partial<InsertNegosyanteProfile>) {
-  const db = await getDb();
-  if (!db) throw new Error("Database not available");
-  
-  const existing = await db.select().from(negosyanteProfiles).where(eq(negosyanteProfiles.userId, userId)).limit(1);
-  
-  if (existing.length > 0) {
-    await db.update(negosyanteProfiles).set(data).where(eq(negosyanteProfiles.userId, userId));
-    return { action: "updated" as const };
-  } else {
-    await db.insert(negosyanteProfiles).values({ ...data, userId });
-    return { action: "created" as const };
-  }
-}
-
-// ===== Feedback =====
-
-export async function createFeedback(fb: InsertFeedback) {
-  const db = await getDb();
-  if (!db) throw new Error("Database not available");
-  return db.insert(feedback).values(fb);
-}
-
-export async function getFeedback() {
-  const db = await getDb();
-  if (!db) return [];
-  return db.select().from(feedback).orderBy(desc(feedback.createdAt));
+export async function createFeedback(fb: {
+  userId?: string;
+  feedbackType: "outdated_info" | "incorrect_data" | "suggestion" | "bug_report" | "general";
+  stepNumber?: number;
+  lguId: string;
+  message: string;
+}): Promise<void> {
+  await db().collection("feedback").add({
+    ...fb,
+    status: "pending",
+    createdAt: FieldValue.serverTimestamp(),
+  });
 }

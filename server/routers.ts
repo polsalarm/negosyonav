@@ -1,12 +1,14 @@
-import { COOKIE_NAME } from "@shared/const";
-import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
 import { invokeLLM } from "./_core/llm";
 import { z } from "zod";
-import { getCommunityPosts, createCommunityPost, voteOnPost, getUserVotes, createFeedback, getProfile, upsertProfile } from "./db";
+import {
+  getCommunityPosts, createCommunityPost, voteOnPost, getUserVotes,
+  createFeedback, getProfile, upsertProfile, upsertUser,
+} from "./db";
 
-// Manila LGU context for the AI system prompt
+// ─── System prompts ────────────────────────────────────────────────────────────
+
 const MANILA_SYSTEM_PROMPT = `You are NegosyoNav, a friendly and knowledgeable AI assistant that helps Filipino micro-entrepreneurs navigate business registration in the City of Manila. You speak in Taglish (mix of Tagalog and English) naturally.
 
 IMPORTANT CONTEXT - City of Manila Business Registration Steps:
@@ -96,18 +98,39 @@ const PROFILE_EXTRACTION_PROMPT = `You are a data extraction assistant. Extract 
 }
 Only include fields that were explicitly mentioned in the conversation. Return valid JSON only, no markdown.`;
 
+// ─── Router ────────────────────────────────────────────────────────────────────
+
 export const appRouter = router({
   system: systemRouter,
+
+  // Auth
   auth: router({
-    me: publicProcedure.query(opts => opts.ctx.user),
-    logout: publicProcedure.mutation(({ ctx }) => {
-      const cookieOptions = getSessionCookieOptions(ctx.req);
-      ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
+    me: publicProcedure.query(({ ctx }) => ctx.user),
+
+    logout: publicProcedure.mutation(() => {
+      // Actual sign-out happens client-side via Firebase signOut().
+      // This endpoint exists for compatibility / cache invalidation.
       return { success: true } as const;
     }),
+
+    // Called after Firebase sign-in to create/update the user doc in Firestore
+    syncUser: protectedProcedure
+      .input(z.object({
+        name: z.string().optional(),
+        email: z.string().optional(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        await upsertUser({
+          uid: ctx.user.uid,
+          name: input.name ?? ctx.user.name,
+          email: input.email ?? ctx.user.email,
+          loginMethod: "email",
+        });
+        return { success: true };
+      }),
   }),
 
-  // AI Chat - Taglish conversational intake
+  // AI
   ai: router({
     chat: publicProcedure
       .input(z.object({
@@ -119,19 +142,14 @@ export const appRouter = router({
       .mutation(async ({ input }) => {
         const llmMessages = [
           { role: "system" as const, content: MANILA_SYSTEM_PROMPT },
-          ...input.messages.map(m => ({
-            role: m.role as "user" | "assistant",
-            content: m.content,
-          })),
+          ...input.messages.map(m => ({ role: m.role as "user" | "assistant", content: m.content })),
         ];
-
         const response = await invokeLLM({ messages: llmMessages });
         const content = response.choices[0]?.message?.content;
-        const text = typeof content === "string" ? content : Array.isArray(content) ? content.map(c => 'text' in c ? c.text : '').join('') : '';
+        const text = typeof content === "string" ? content : Array.isArray(content) ? content.map(c => "text" in c ? c.text : "").join("") : "";
         return { content: text };
       }),
 
-    // Extract profile data from chat conversation
     extractProfile: publicProcedure
       .input(z.object({
         messages: z.array(z.object({
@@ -140,7 +158,7 @@ export const appRouter = router({
         })),
       }))
       .mutation(async ({ input }) => {
-        const chatSummary = input.messages.map(m => `${m.role}: ${m.content}`).join('\n');
+        const chatSummary = input.messages.map(m => `${m.role}: ${m.content}`).join("\n");
         const response = await invokeLLM({
           messages: [
             { role: "system", content: PROFILE_EXTRACTION_PROMPT },
@@ -148,20 +166,61 @@ export const appRouter = router({
           ],
         });
         const content = response.choices[0]?.message?.content;
-        const text = typeof content === "string" ? content : '';
+        const text = typeof content === "string" ? content : "";
         try {
-          const cleaned = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+          const cleaned = text.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
           return JSON.parse(cleaned);
         } catch {
           return {};
         }
+      }),
+
+    // Form Assistant Chatbot — answers questions about specific form fields in Taglish
+    formHelp: publicProcedure
+      .input(z.object({
+        formName: z.string(),
+        fieldLabel: z.string(),
+        userQuestion: z.string(),
+        conversationHistory: z.array(z.object({
+          role: z.enum(["user", "assistant"]),
+          content: z.string(),
+        })).default([]),
+        userProfile: z.record(z.string(), z.unknown()).optional(),
+      }))
+      .mutation(async ({ input }) => {
+        const profileContext = input.userProfile
+          ? `\nUser profile (use this to give personalized answers): ${JSON.stringify(input.userProfile)}`
+          : "";
+
+        const systemPrompt = `Ikaw ay isang form-filling assistant para sa mga government forms ng Pilipinas.
+Sumasagot ka sa Taglish — natural na mix ng Tagalog at English, katulad ng pag-usap ng mga Pilipino.
+Form na pinupunan: ${input.formName}
+Field na tinatanong: "${input.fieldLabel}"${profileContext}
+
+Mga patakaran:
+- Sumagot nang maikli at konketo — 2-3 sentences lang.
+- Magbigay ng halimbawa kung kailangan (e.g., "Hal: Sari-Sari Store", "Hal: 09171234567").
+- Kung may profile ang user, gamitin ang info niya para mas personalized ang sagot.
+- Kung hindi sigurado, sabihin nang maayos at i-suggest kung saan makikita ang tamang impormasyon.
+- Maging encouraging — "Kaya mo 'to!" spirit.`;
+
+        const messages = [
+          { role: "system" as const, content: systemPrompt },
+          ...input.conversationHistory.map(m => ({ role: m.role as "user" | "assistant", content: m.content })),
+          { role: "user" as const, content: input.userQuestion },
+        ];
+
+        const response = await invokeLLM({ messages });
+        const content = response.choices[0]?.message?.content;
+        const text = typeof content === "string" ? content : Array.isArray(content) ? content.map(c => "text" in c ? c.text : "").join("") : "";
+        return { content: text };
       }),
   }),
 
   // Negosyante Profile
   profile: router({
     get: protectedProcedure.query(async ({ ctx }) => {
-      return getProfile(ctx.user.id);
+      return getProfile(ctx.user.uid);
     }),
 
     save: protectedProcedure
@@ -208,7 +267,7 @@ export const appRouter = router({
         preferTaxOption: z.enum(["graduated", "eight_percent"]).optional(),
       }))
       .mutation(async ({ ctx, input }) => {
-        return upsertProfile(ctx.user.id, input);
+        return upsertProfile(ctx.user.uid, input);
       }),
   }),
 
@@ -222,19 +281,12 @@ export const appRouter = router({
       }).optional())
       .query(({ input }) => {
         const grants: Array<{
-          id: string;
-          name: string;
-          eligible: boolean;
-          reason: string;
-          benefits: string[];
-          agency: string;
-          whereToApply: string;
+          id: string; name: string; eligible: boolean; reason: string;
+          benefits: string[]; agency: string; whereToApply: string;
         }> = [];
 
         const cap = input?.capitalization ?? 0;
-        const employees = input?.numberOfEmployees ?? 0;
 
-        // BMBE
         grants.push({
           id: "bmbe",
           name: "BMBE Registration (Barangay Micro Business Enterprise)",
@@ -253,7 +305,6 @@ export const appRouter = router({
           whereToApply: "Manila City Treasurer's Office, Manila City Hall",
         });
 
-        // DOLE DILP
         grants.push({
           id: "dole_dilp",
           name: "DOLE Kabuhayan Program (DILP)",
@@ -267,7 +318,6 @@ export const appRouter = router({
           whereToApply: "DOLE NCR Field Office",
         });
 
-        // SB Corp
         grants.push({
           id: "sbcorp",
           name: "SB Corp Micro-Financing",
@@ -288,12 +338,10 @@ export const appRouter = router({
       }),
   }),
 
-  // Community Hub - Negosyante Hub
+  // Community Hub
   community: router({
     list: publicProcedure
-      .input(z.object({
-        lguTag: z.string().optional(),
-      }).optional())
+      .input(z.object({ lguTag: z.string().optional() }).optional())
       .query(async ({ input }) => {
         return getCommunityPosts(input?.lguTag);
       }),
@@ -307,7 +355,7 @@ export const appRouter = router({
       }))
       .mutation(async ({ ctx, input }) => {
         await createCommunityPost({
-          userId: ctx.user.id,
+          userId: ctx.user.uid,
           authorName: ctx.user.name || "Anonymous Negosyante",
           title: input.title,
           content: input.content,
@@ -319,20 +367,20 @@ export const appRouter = router({
 
     vote: protectedProcedure
       .input(z.object({
-        postId: z.number(),
+        postId: z.string(),
         voteType: z.enum(["up", "down"]),
       }))
       .mutation(async ({ ctx, input }) => {
-        return voteOnPost(input.postId, ctx.user.id, input.voteType);
+        return voteOnPost(input.postId, ctx.user.uid, input.voteType);
       }),
 
     myVotes: protectedProcedure
       .query(async ({ ctx }) => {
-        return getUserVotes(ctx.user.id);
+        return getUserVotes(ctx.user.uid);
       }),
   }),
 
-  // Smart Form Auto-fill + PDF Generation
+  // Smart Form Auto-fill + PDF
   forms: router({
     generatePdf: protectedProcedure
       .input(z.object({
@@ -340,37 +388,31 @@ export const appRouter = router({
         fields: z.record(z.string(), z.string()),
       }))
       .mutation(async ({ input }) => {
-        // Generate a simple text-based PDF content as base64
-        // In production, this would use a proper PDF library
         const formTitles: Record<string, string> = {
           dti_form: "DTI Business Name Registration Form (FM-BN-01)",
           barangay_clearance: "Barangay Business Clearance Application",
           bir_1901: "BIR Form 1901 — Application for Registration",
         };
         const title = formTitles[input.formId] || input.formId;
-        
-        // Build a simple text representation for the PDF
-        let textContent = `${title}\n${'='.repeat(60)}\n\n`;
-        textContent += `Generated by NegosyoNav | Date: ${new Date().toLocaleDateString('en-PH')}\n\n`;
-        
+
+        let textContent = `${title}\n${"=".repeat(60)}\n\n`;
+        textContent += `Generated by NegosyoNav | Date: ${new Date().toLocaleDateString("en-PH")}\n\n`;
         for (const [key, value] of Object.entries(input.fields)) {
-          const label = key.replace(/_/g, ' ').replace(/^(dti|bir|brgy)\s/, '').toUpperCase();
-          textContent += `${label}: ${value || '(blank)'}\n`;
+          const label = key.replace(/_/g, " ").replace(/^(dti|bir|brgy)\s/, "").toUpperCase();
+          textContent += `${label}: ${value || "(blank)"}\n`;
         }
-        
-        textContent += `\n${'='.repeat(60)}\n`;
+        textContent += `\n${"=".repeat(60)}\n`;
         textContent += `IMPORTANT: This is a pre-filled reference document.\n`;
         textContent += `Please transfer the information to the official government form.\n`;
         textContent += `Official DTI form: bnrs.dti.gov.ph\n`;
         textContent += `Official BIR form: bir.gov.ph\n`;
-        
-        // Encode as base64
-        const pdfContent = Buffer.from(textContent).toString('base64');
+
+        const pdfContent = Buffer.from(textContent).toString("base64");
         return { pdfContent, formId: input.formId };
       }),
   }),
 
-  // Feedback & Reporting
+  // Feedback
   feedback: router({
     submit: publicProcedure
       .input(z.object({
@@ -381,7 +423,7 @@ export const appRouter = router({
       }))
       .mutation(async ({ ctx, input }) => {
         await createFeedback({
-          userId: ctx.user?.id,
+          userId: ctx.user?.uid,
           feedbackType: input.feedbackType,
           stepNumber: input.stepNumber,
           lguId: input.lguId,

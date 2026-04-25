@@ -52,7 +52,7 @@ const CATEGORY_ICONS: Record<string, typeof Lightbulb> = {
 // Seed data for demo purposes when DB is empty
 const SEED_POSTS = [
   {
-    id: -1,
+    id: "seed-1",
     userId: 0,
     authorName: "Aling Rosa",
     lguTag: "manila_city",
@@ -66,7 +66,7 @@ const SEED_POSTS = [
     updatedAt: new Date("2026-04-20T08:00:00Z"),
   },
   {
-    id: -2,
+    id: "seed-2",
     userId: 0,
     authorName: "Kuya Ben",
     lguTag: "manila_city",
@@ -142,12 +142,11 @@ export default function Hub() {
     return allPosts.filter((p) => p.category === selectedCategory);
   }, [allPosts, selectedCategory]);
 
-  const handleVote = (postId: number, voteType: "up" | "down") => {
+  const handleVote = (postId: string, voteType: "up" | "down") => {
     if (!isAuthenticated) {
       window.location.href = getLoginUrl();
       return;
     }
-    if (postId < 0) return; // Can't vote on seed posts
     voteMutation.mutate({ postId, voteType });
   };
 

@@ -12,9 +12,11 @@ import { getLoginUrl } from "@/const";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowLeft, FileText, Download, CheckCircle2, AlertCircle, User, Loader2,
-  ChevronDown, ChevronUp, Edit3, Eye,
+  ChevronDown, ChevronUp, Edit3, Eye, HelpCircle, MessageCircle,
 } from "lucide-react";
 import { toast } from "sonner";
+import FormHelpDrawer from "@/components/FormHelpDrawer";
+import { useFormHelp } from "@/hooks/useFormHelp";
 
 interface FormField {
   label: string;
@@ -39,6 +41,8 @@ export default function Forms() {
   const [expandedForm, setExpandedForm] = useState<string | null>(null);
   const [editMode, setEditMode] = useState<string | null>(null);
   const [fieldOverrides, setFieldOverrides] = useState<Record<string, string>>({});
+  const [activeFormName, setActiveFormName] = useState("");
+  const formHelp = useFormHelp(activeFormName);
 
   const profileQuery = trpc.profile.get.useQuery(undefined, { enabled: isAuthenticated });
   const generatePdfMutation = trpc.forms.generatePdf.useMutation({
@@ -281,6 +285,17 @@ export default function Forms() {
                                 <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-1">
                                   {field.label}
                                   {field.required && <span className="text-jeepney-red">*</span>}
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setActiveFormName(form.title);
+                                      formHelp.openHelp(field.label);
+                                    }}
+                                    className="ml-auto text-muted-foreground/60 hover:text-teal transition-colors"
+                                    title={`Tulong sa "${field.label}"`}
+                                  >
+                                    <HelpCircle className="w-3 h-3" />
+                                  </button>
                                 </label>
                                 {isEditing ? (
                                   <input
@@ -336,6 +351,37 @@ export default function Forms() {
           </Button>
         </div>
       </div>
+
+      {/* Floating Form Help Button */}
+      {!formHelp.isOpen && (
+        <motion.button
+          initial={{ scale: 0 }}
+          animate={{ scale: 1 }}
+          whileTap={{ scale: 0.9 }}
+          onClick={() => {
+            const firstForm = forms[0];
+            if (firstForm) {
+              setActiveFormName(firstForm.title);
+              formHelp.openHelp("General na tanong sa form");
+            }
+          }}
+          className="fixed bottom-20 right-4 w-14 h-14 bg-teal text-white rounded-full shadow-lg flex items-center justify-center z-30 hover:bg-teal/90 transition-colors"
+          title="Form Help Assistant"
+        >
+          <MessageCircle className="w-6 h-6" />
+        </motion.button>
+      )}
+
+      {/* Form Help Drawer */}
+      <FormHelpDrawer
+        isOpen={formHelp.isOpen}
+        onClose={formHelp.closeHelp}
+        formName={formHelp.formName}
+        fieldLabel={formHelp.activeField?.label ?? ""}
+        history={formHelp.history}
+        onAddMessage={formHelp.addMessage}
+        userProfile={p ? (p as unknown as Record<string, unknown>) : undefined}
+      />
     </div>
   );
 }
