@@ -132,7 +132,7 @@ export const appRouter = router({
 
   // AI
   ai: router({
-    chat: publicProcedure
+    chat: protectedProcedure
       .input(z.object({
         messages: z.array(z.object({
           role: z.enum(["user", "assistant"]),
@@ -150,7 +150,7 @@ export const appRouter = router({
         return { content: text };
       }),
 
-    extractProfile: publicProcedure
+    extractProfile: protectedProcedure
       .input(z.object({
         messages: z.array(z.object({
           role: z.enum(["user", "assistant"]),
@@ -176,7 +176,7 @@ export const appRouter = router({
       }),
 
     // Form Assistant Chatbot — answers questions about specific form fields in Taglish
-    formHelp: publicProcedure
+    formHelp: protectedProcedure
       .input(z.object({
         formName: z.string(),
         fieldLabel: z.string(),
@@ -273,7 +273,7 @@ Mga patakaran:
 
   // Grant Matching
   grants: router({
-    check: publicProcedure
+    check: protectedProcedure
       .input(z.object({
         capitalization: z.number().optional(),
         businessType: z.string().optional(),
@@ -340,7 +340,7 @@ Mga patakaran:
 
   // Community Hub
   community: router({
-    list: publicProcedure
+    list: protectedProcedure
       .input(z.object({ lguTag: z.string().optional() }).optional())
       .query(async ({ input }) => {
         return getCommunityPosts(input?.lguTag);
@@ -414,7 +414,7 @@ Mga patakaran:
 
   // Feedback
   feedback: router({
-    submit: publicProcedure
+    submit: protectedProcedure
       .input(z.object({
         feedbackType: z.enum(["outdated_info", "incorrect_data", "suggestion", "bug_report", "general"]),
         stepNumber: z.number().optional(),
@@ -423,7 +423,7 @@ Mga patakaran:
       }))
       .mutation(async ({ ctx, input }) => {
         await createFeedback({
-          userId: ctx.user?.uid,
+          userId: ctx.user.uid,
           feedbackType: input.feedbackType,
           stepNumber: input.stepNumber,
           lguId: input.lguId,

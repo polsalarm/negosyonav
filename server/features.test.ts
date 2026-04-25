@@ -1,50 +1,30 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { appRouter } from "./routers";
 import type { TrpcContext } from "./_core/context";
 
-type AuthenticatedUser = NonNullable<TrpcContext["user"]>;
+// Mock the db module to avoid hitting Firestore in tests
+vi.mock("./db", () => ({
+  getCommunityPosts: vi.fn().mockResolvedValue([]),
+  createCommunityPost: vi.fn().mockResolvedValue({}),
+  voteOnPost: vi.fn().mockResolvedValue({ action: "voted" }),
+  getUserVotes: vi.fn().mockResolvedValue([]),
+  createFeedback: vi.fn().mockResolvedValue({}),
+  getProfile: vi.fn().mockResolvedValue(null),
+  upsertProfile: vi.fn().mockResolvedValue({}),
+  upsertUser: vi.fn(),
+}));
 
 function createAuthContext(): TrpcContext {
-  const user: AuthenticatedUser = {
-    id: 1,
-    openId: "test-user-001",
-    email: "test@example.com",
-    name: "Test Negosyante",
-    loginMethod: "manus",
-    role: "user",
-    createdAt: new Date(),
-    updatedAt: new Date(),
-    lastSignedIn: new Date(),
-  };
-
   return {
-    user,
-    req: {
-      protocol: "https",
-      headers: {},
-    } as TrpcContext["req"],
-    res: {
-      clearCookie: () => {},
-    } as TrpcContext["res"],
-  };
-}
-
-function createPublicContext(): TrpcContext {
-  return {
-    user: null,
-    req: {
-      protocol: "https",
-      headers: {},
-    } as TrpcContext["req"],
-    res: {
-      clearCookie: () => {},
-    } as TrpcContext["res"],
+    user: { uid: "test-user-001", email: "test@example.com", name: "Test Negosyante", role: "user" },
+    req: { headers: {} } as TrpcContext["req"],
+    res: {} as TrpcContext["res"],
   };
 }
 
 describe("grants.check", () => {
   it("returns BMBE as eligible for micro-enterprises under 3M", async () => {
-    const ctx = createPublicContext();
+    const ctx = createAuthContext();
     const caller = appRouter.createCaller(ctx);
 
     const grants = await caller.grants.check({
@@ -63,7 +43,7 @@ describe("grants.check", () => {
   });
 
   it("returns BMBE as not eligible for businesses over 3M", async () => {
-    const ctx = createPublicContext();
+    const ctx = createAuthContext();
     const caller = appRouter.createCaller(ctx);
 
     const grants = await caller.grants.check({
@@ -78,7 +58,7 @@ describe("grants.check", () => {
   });
 
   it("returns DOLE DILP as always eligible", async () => {
-    const ctx = createPublicContext();
+    const ctx = createAuthContext();
     const caller = appRouter.createCaller(ctx);
 
     const grants = await caller.grants.check({});
@@ -89,7 +69,7 @@ describe("grants.check", () => {
   });
 
   it("returns SB Corp as not eligible when no capitalization", async () => {
-    const ctx = createPublicContext();
+    const ctx = createAuthContext();
     const caller = appRouter.createCaller(ctx);
 
     const grants = await caller.grants.check({
@@ -149,7 +129,7 @@ describe("forms.generatePdf", () => {
 
 describe("feedback.submit", () => {
   it("accepts feedback submission from public users", async () => {
-    const ctx = createPublicContext();
+    const ctx = createAuthContext();
     const caller = appRouter.createCaller(ctx);
 
     const result = await caller.feedback.submit({
@@ -163,7 +143,7 @@ describe("feedback.submit", () => {
   });
 
   it("accepts general feedback without step number", async () => {
-    const ctx = createPublicContext();
+    const ctx = createAuthContext();
     const caller = appRouter.createCaller(ctx);
 
     const result = await caller.feedback.submit({
@@ -177,7 +157,7 @@ describe("feedback.submit", () => {
 
 describe("community.list", () => {
   it("returns an array of community posts", async () => {
-    const ctx = createPublicContext();
+    const ctx = createAuthContext();
     const caller = appRouter.createCaller(ctx);
 
     const posts = await caller.community.list({});
@@ -186,7 +166,7 @@ describe("community.list", () => {
   });
 
   it("filters by LGU tag", async () => {
-    const ctx = createPublicContext();
+    const ctx = createAuthContext();
     const caller = appRouter.createCaller(ctx);
 
     const posts = await caller.community.list({ lguTag: "manila_city" });

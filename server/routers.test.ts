@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
+import { TRPCError } from "@trpc/server";
 import { appRouter } from "./routers";
 import type { TrpcContext } from "./_core/context";
+import { UNAUTHED_ERR_MSG } from "@shared/const";
 
 // Mock the LLM module
 vi.mock("./_core/llm", () => ({
@@ -37,43 +39,31 @@ vi.mock("./db", () => ({
   voteOnPost: vi.fn().mockResolvedValue({ action: "voted" }),
   getUserVotes: vi.fn().mockResolvedValue([]),
   createFeedback: vi.fn().mockResolvedValue({}),
+  getProfile: vi.fn().mockResolvedValue(null),
+  upsertProfile: vi.fn().mockResolvedValue({}),
   upsertUser: vi.fn(),
   getUserByOpenId: vi.fn(),
 }));
 
-type AuthenticatedUser = NonNullable<TrpcContext["user"]>;
-
 function createPublicContext(): TrpcContext {
   return {
     user: null,
-    req: { protocol: "https", headers: {} } as TrpcContext["req"],
-    res: { clearCookie: vi.fn() } as unknown as TrpcContext["res"],
+    req: { headers: {} } as TrpcContext["req"],
+    res: {} as TrpcContext["res"],
   };
 }
 
 function createAuthContext(): TrpcContext {
-  const user: AuthenticatedUser = {
-    id: 1,
-    openId: "test-user-123",
-    email: "test@example.com",
-    name: "Test Negosyante",
-    loginMethod: "manus",
-    role: "user",
-    createdAt: new Date(),
-    updatedAt: new Date(),
-    lastSignedIn: new Date(),
-  };
-
   return {
-    user,
-    req: { protocol: "https", headers: {} } as TrpcContext["req"],
-    res: { clearCookie: vi.fn() } as unknown as TrpcContext["res"],
+    user: { uid: "test-user-001", email: "test@example.com", name: "Test Negosyante", role: "user" },
+    req: { headers: {} } as TrpcContext["req"],
+    res: {} as TrpcContext["res"],
   };
 }
 
 describe("AI Chat Router", () => {
   it("returns a Taglish response from the LLM", async () => {
-    const ctx = createPublicContext();
+    const ctx = createAuthContext();
     const caller = appRouter.createCaller(ctx);
 
     const result = await caller.ai.chat({
@@ -88,7 +78,7 @@ describe("AI Chat Router", () => {
 
 describe("Community Hub Router", () => {
   it("lists community posts for manila_city", async () => {
-    const ctx = createPublicContext();
+    const ctx = createAuthContext();
     const caller = appRouter.createCaller(ctx);
 
     const posts = await caller.community.list({ lguTag: "manila_city" });
@@ -131,15 +121,15 @@ describe("Community Hub Router", () => {
     const ctx = createAuthContext();
     const caller = appRouter.createCaller(ctx);
 
-    const result = await caller.community.vote({ postId: 1, voteType: "up" });
+    const result = await caller.community.vote({ postId: "1", voteType: "up" });
 
     expect(result).toHaveProperty("action");
   });
 });
 
 describe("Feedback Router", () => {
-  it("submits feedback without authentication", async () => {
-    const ctx = createPublicContext();
+  it("submits feedback when authenticated", async () => {
+    const ctx = createAuthContext();
     const caller = appRouter.createCaller(ctx);
 
     const result = await caller.feedback.submit({
@@ -153,7 +143,7 @@ describe("Feedback Router", () => {
   });
 
   it("validates feedback message minimum length", async () => {
-    const ctx = createPublicContext();
+    const ctx = createAuthContext();
     const caller = appRouter.createCaller(ctx);
 
     await expect(
@@ -163,5 +153,28 @@ describe("Feedback Router", () => {
         message: "hi",
       })
     ).rejects.toThrow();
+  });
+});
+
+describe("Procedure auth gates", () => {
+  it.each([
+    ["ai.chat", (c: ReturnType<typeof appRouter.createCaller>) =>
+      c.ai.chat({ messages: [{ role: "user", content: "hi" }] })],
+    ["grants.check", (c: ReturnType<typeof appRouter.createCaller>) =>
+      c.grants.check({ capitalization: 1000 })],
+    ["community.list", (c: ReturnType<typeof appRouter.createCaller>) =>
+      c.community.list()],
+    ["feedback.submit", (c: ReturnType<typeof appRouter.createCaller>) =>
+      c.feedback.submit({ feedbackType: "general", message: "hello world" })],
+  ])("%s rejects unauthenticated callers", async (_name, call) => {
+    const caller = appRouter.createCaller(createPublicContext());
+    await expect(call(caller)).rejects.toThrowError(
+      expect.objectContaining({ code: "UNAUTHORIZED", message: UNAUTHED_ERR_MSG } as Partial<TRPCError>),
+    );
+  });
+
+  it("auth.me stays public", async () => {
+    const caller = appRouter.createCaller(createPublicContext());
+    await expect(caller.auth.me()).resolves.toBeNull();
   });
 });
