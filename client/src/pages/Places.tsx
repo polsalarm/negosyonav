@@ -3,7 +3,7 @@
  * Shows nearest Negosyo Center, BIR RDO, City Hall on Google Maps.
  * With community-sourced queue tips and best times to visit.
  */
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
@@ -11,11 +11,14 @@ import {
   ArrowLeft, MapPin, Clock, Users, Navigation, Phone, ExternalLink,
   Building2, FileText, Landmark,
 } from "lucide-react";
+import { manilaData, type Office, type BirRdo } from "@/data/manilaData";
 
-interface OfficeInfo {
+type PlaceType = "city_hall" | "negosyo_center" | "bir_rdo" | "barangay";
+
+interface PlaceItem {
   id: string;
   name: string;
-  type: "city_hall" | "negosyo_center" | "bir_rdo" | "barangay";
+  type: PlaceType;
   address: string;
   lat: number;
   lng: number;
@@ -26,96 +29,49 @@ interface OfficeInfo {
   step: number[];
 }
 
-const manilaOffices: OfficeInfo[] = [
-  {
-    id: "manila_city_hall",
-    name: "Manila City Hall — Bureau of Permits",
-    type: "city_hall",
-    address: "Room 110, Padre Burgos Ave, Ermita, Manila 1000",
-    lat: 14.5896,
-    lng: 120.9820,
-    phone: "+63 2 5310 4184",
-    hours: "Mon–Fri 8:00 AM – 5:00 PM",
-    bestTime: "Tuesday–Thursday, 8:00–10:00 AM",
-    queueTip: "Go to E-BOSS Lounge (G/F) for faster processing. Avoid Mondays — longest queue.",
-    step: [4],
-  },
-  {
-    id: "negosyo_center_ch",
-    name: "Negosyo Center — Manila City Hall",
-    type: "negosyo_center",
-    address: "Manila City Hall, Padre Burgos Ave, Ermita, Manila",
-    lat: 14.5896,
-    lng: 120.9820,
-    phone: "ncr@dti.gov.ph",
-    hours: "Mon–Fri 8:00 AM – 5:00 PM",
-    bestTime: "Weekday mornings, 9:00–11:00 AM",
-    queueTip: "DTI registration can also be done online at bnrs.dti.gov.ph — faster than in-person.",
-    step: [1],
-  },
-  {
-    id: "negosyo_center_lc",
-    name: "Negosyo Center — Lucky Chinatown Mall",
-    type: "negosyo_center",
-    address: "Lucky Chinatown Mall, Reina Regente St, Binondo, Manila",
-    lat: 14.5994,
-    lng: 120.9741,
-    phone: "7794-2147",
-    hours: "Mon–Sat 10:00 AM – 6:00 PM",
-    bestTime: "Weekday afternoons, 2:00–4:00 PM",
-    queueTip: "Less crowded than City Hall. Good for DTI registration and BMBE inquiries.",
-    step: [1],
-  },
-  {
-    id: "rdo_029",
-    name: "BIR RDO 029 — Tondo, San Nicolas",
+function inferType(officeId: string): PlaceType {
+  if (officeId.startsWith("negosyo_center")) return "negosyo_center";
+  if (officeId.startsWith("manila_city_hall") || officeId.startsWith("manila_city_treasurer"))
+    return "city_hall";
+  return "city_hall";
+}
+
+function stepsForOfficeId(officeId: string): number[] {
+  return manilaData.registration_steps
+    .filter((s) => s.officeId === officeId)
+    .map((s) => s.step_number);
+}
+
+function officeToPlace(o: Office): PlaceItem {
+  return {
+    id: o.id,
+    name: o.name,
+    type: inferType(o.id),
+    address: o.address,
+    lat: o.lat,
+    lng: o.lng,
+    phone: o.contact_phone,
+    hours: o.hours,
+    bestTime: o.bestTime ?? "Weekday mornings",
+    queueTip: o.queueTip ?? o.notes ?? "",
+    step: stepsForOfficeId(o.id),
+  };
+}
+
+function rdoToPlace(r: BirRdo): PlaceItem {
+  return {
+    id: r.rdo_code,
+    name: r.name,
     type: "bir_rdo",
-    address: "Tondo, Manila",
-    lat: 14.6120,
-    lng: 120.9680,
+    address: r.address ?? `${r.districts.join(", ")}, Manila`,
+    lat: r.lat,
+    lng: r.lng,
     hours: "Mon–Fri 8:00 AM – 5:00 PM",
-    bestTime: "Early morning, 8:00–9:00 AM",
-    queueTip: "Bring all requirements in a folder. BIR is strict on completeness.",
+    bestTime: r.bestTime ?? "Early morning",
+    queueTip: r.queueTip ?? "Use ORUS (orus.bir.gov.ph) for online registration.",
     step: [5],
-  },
-  {
-    id: "rdo_030",
-    name: "BIR RDO 030 — Binondo",
-    type: "bir_rdo",
-    address: "Binondo, Manila",
-    lat: 14.5994,
-    lng: 120.9741,
-    hours: "Mon–Fri 8:00 AM – 5:00 PM",
-    bestTime: "Tuesday–Thursday mornings",
-    queueTip: "Use ORUS (orus.bir.gov.ph) for online registration to skip the queue.",
-    step: [5],
-  },
-  {
-    id: "rdo_031",
-    name: "BIR RDO 031 — Sta. Cruz",
-    type: "bir_rdo",
-    address: "Sta. Cruz, Manila",
-    lat: 14.6030,
-    lng: 120.9830,
-    hours: "Mon–Fri 8:00 AM – 5:00 PM",
-    bestTime: "Early morning",
-    queueTip: "Prepare exact amounts for payments. Some RDOs don't accept large bills.",
-    step: [5],
-  },
-  {
-    id: "rdo_033",
-    name: "BIR RDO 033 — Intramuros, Ermita, Malate",
-    type: "bir_rdo",
-    address: "181 Natividad Lopez St, Intramuros, Manila",
-    lat: 14.5890,
-    lng: 120.9750,
-    phone: "+63 2 8527 5538",
-    hours: "Mon–Fri 8:00 AM – 5:00 PM",
-    bestTime: "Wednesday mornings",
-    queueTip: "Covers Intramuros, Ermita, Malate, and Port Area. Bring 2 copies of each document.",
-    step: [5],
-  },
-];
+  };
+}
 
 const typeIcons: Record<string, React.ElementType> = {
   city_hall: Landmark,
@@ -143,7 +99,15 @@ export default function Places() {
   const [filter, setFilter] = useState<string>("all");
   const [selectedOffice, setSelectedOffice] = useState<string | null>(null);
 
-  const filtered = filter === "all" ? manilaOffices : manilaOffices.filter(o => o.type === filter);
+  const places = useMemo<PlaceItem[]>(
+    () => [
+      ...manilaData.offices.map(officeToPlace),
+      ...manilaData.bir_rdos.map(rdoToPlace),
+    ],
+    [],
+  );
+
+  const filtered = filter === "all" ? places : places.filter((o) => o.type === filter);
 
   return (
     <div className="min-h-screen bg-warm-cream pb-24">
