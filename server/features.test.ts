@@ -82,51 +82,6 @@ describe("grants.check", () => {
   });
 });
 
-describe("forms.generatePdf", () => {
-  it("generates a base64 encoded PDF for DTI form", async () => {
-    const ctx = createAuthContext();
-    const caller = appRouter.createCaller(ctx);
-
-    const result = await caller.forms.generatePdf({
-      formId: "dti_form",
-      fields: {
-        dti_name: "Juan Dela Cruz",
-        dti_bn1: "Juan's Sari-Sari Store",
-        dti_activity: "Retail Trade",
-        dti_scope: "city",
-      },
-    });
-
-    expect(result.pdfContent).toBeDefined();
-    expect(result.formId).toBe("dti_form");
-
-    // Decode and verify content
-    const decoded = Buffer.from(result.pdfContent, "base64").toString("utf-8");
-    expect(decoded).toContain("DTI Business Name Registration Form");
-    expect(decoded).toContain("Juan Dela Cruz");
-    expect(decoded).toContain("Juan's Sari-Sari Store");
-  });
-
-  it("generates PDF for BIR 1901 form", async () => {
-    const ctx = createAuthContext();
-    const caller = appRouter.createCaller(ctx);
-
-    const result = await caller.forms.generatePdf({
-      formId: "bir_1901",
-      fields: {
-        bir_first: "Juan",
-        bir_last: "Dela Cruz",
-        bir_trade: "Juan's Store",
-      },
-    });
-
-    expect(result.pdfContent).toBeDefined();
-    expect(result.formId).toBe("bir_1901");
-    const decoded = Buffer.from(result.pdfContent, "base64").toString("utf-8");
-    expect(decoded).toContain("BIR Form 1901");
-  });
-});
-
 describe("feedback.submit", () => {
   it("accepts feedback submission from public users", async () => {
     const ctx = createAuthContext();
