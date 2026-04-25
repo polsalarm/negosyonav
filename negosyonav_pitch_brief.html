@@ -1,0 +1,368 @@
+
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: var(--font-sans); }
+
+  .section { margin-bottom: 2rem; }
+  .section-label {
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-text-tertiary);
+    margin-bottom: 0.5rem;
+  }
+  .section-title {
+    font-size: 18px;
+    font-weight: 500;
+    color: var(--color-text-primary);
+    margin-bottom: 0.75rem;
+  }
+  .prose {
+    font-size: 14px;
+    line-height: 1.7;
+    color: var(--color-text-secondary);
+  }
+
+  .card {
+    background: var(--color-background-primary);
+    border: 0.5px solid var(--color-border-tertiary);
+    border-radius: var(--border-radius-lg);
+    padding: 1rem 1.25rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .pill {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 500;
+    padding: 3px 10px;
+    border-radius: 20px;
+    margin-right: 6px;
+    margin-bottom: 4px;
+  }
+  .pill-teal { background: #E1F5EE; color: #0F6E56; }
+  .pill-purple { background: #EEEDFE; color: #3C3489; }
+  .pill-amber { background: #FAEEDA; color: #854F0B; }
+  .pill-coral { background: #FAECE7; color: #993C1D; }
+  .pill-blue { background: #E6F1FB; color: #0C447C; }
+  .pill-pink { background: #FBEAF0; color: #72243E; }
+
+  .divider {
+    border: none;
+    border-top: 0.5px solid var(--color-border-tertiary);
+    margin: 2rem 0;
+  }
+
+  .problem-stat {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 0.75rem;
+  }
+  .stat-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    font-size: 15px;
+  }
+  .icon-coral { background: #FAECE7; }
+  .icon-amber { background: #FAEEDA; }
+  .icon-purple { background: #EEEDFE; }
+  .icon-blue { background: #E6F1FB; }
+
+  .feature-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 10px;
+    margin-top: 1rem;
+  }
+  .feature-card {
+    background: var(--color-background-secondary);
+    border-radius: var(--border-radius-md);
+    padding: 0.875rem 1rem;
+  }
+  .feature-num {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--color-text-tertiary);
+    margin-bottom: 4px;
+  }
+  .feature-name {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--color-text-primary);
+    margin-bottom: 4px;
+  }
+  .feature-desc {
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--color-text-secondary);
+  }
+
+  .rubric-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 0;
+    border-bottom: 0.5px solid var(--color-border-tertiary);
+  }
+  .rubric-row:last-child { border-bottom: none; }
+  .rubric-pct {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--color-text-primary);
+    min-width: 34px;
+  }
+  .rubric-bar-bg {
+    height: 5px;
+    background: var(--color-background-secondary);
+    border-radius: 3px;
+    flex: 1;
+    overflow: hidden;
+  }
+  .rubric-bar { height: 100%; border-radius: 3px; }
+  .rubric-label { font-size: 12px; color: var(--color-text-secondary); min-width: 160px; }
+
+  .taglish-quote {
+    border-left: 2px solid #9FE1CB;
+    padding: 0.5rem 1rem;
+    margin: 0.75rem 0;
+    font-size: 13px;
+    color: var(--color-text-secondary);
+    font-style: italic;
+    border-radius: 0;
+  }
+
+  .flow-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0.75rem 0;
+    flex-wrap: wrap;
+  }
+  .flow-step {
+    background: var(--color-background-secondary);
+    border-radius: var(--border-radius-md);
+    padding: 6px 12px;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--color-text-primary);
+  }
+  .flow-arrow {
+    font-size: 14px;
+    color: var(--color-text-tertiary);
+  }
+
+  h1 {
+    font-size: 22px;
+    font-weight: 500;
+    color: var(--color-text-primary);
+    margin-bottom: 6px;
+  }
+  .subtitle {
+    font-size: 14px;
+    color: var(--color-text-secondary);
+    margin-bottom: 2rem;
+  }
+</style>
+
+<h2 class="sr-only" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)">NegosyoNav pitch brief — problem, solution, and features overview</h2>
+
+<div style="padding: 1.5rem 0;">
+
+  <!-- Header -->
+  <div style="margin-bottom: 2rem;">
+    <div style="display:flex; align-items:center; gap:10px; margin-bottom:6px;">
+      <h1>NegosyoNav</h1>
+      <span class="pill pill-teal">Pitch Brief</span>
+    </div>
+    <p class="subtitle">Lowering the cost of dreaming for Filipino micro-entrepreneurs — one step at a time.</p>
+  </div>
+
+  <!-- THE PROBLEM -->
+  <div class="section">
+    <p class="section-label">The Problem</p>
+    <p class="section-title">Formalization is a maze — and MSMEs pay for it with their time, money, and future.</p>
+
+    <div class="problem-stat">
+      <div class="stat-icon icon-coral">⏳</div>
+      <div>
+        <p style="font-size:13px;font-weight:500;color:var(--color-text-primary);margin-bottom:2px;">Time lost closing the shop</p>
+        <p class="prose" style="font-size:13px;">A carinderia owner in Sampaloc has to fall in line at the barangay, DTI, City Hall, and BIR — often on separate days, with no clear order of steps.</p>
+      </div>
+    </div>
+    <div class="problem-stat">
+      <div class="stat-icon icon-amber">💸</div>
+      <div>
+        <p style="font-size:13px;font-weight:500;color:var(--color-text-primary);margin-bottom:2px;">Money wasted on fixers</p>
+        <p class="prose" style="font-size:13px;">Confusing jargon and inconsistent requirements push small vendors to pay fixers just to understand a process they could navigate themselves.</p>
+      </div>
+    </div>
+    <div class="problem-stat">
+      <div class="stat-icon icon-purple">📍</div>
+      <div>
+        <p style="font-size:13px;font-weight:500;color:var(--color-text-primary);margin-bottom:2px;">The process is NOT the same everywhere</p>
+        <p class="prose" style="font-size:13px;">A business in Taguig has different LGU requirements, offices, and forms than one in Cavite or Sampaloc. Generic guides fail them.</p>
+      </div>
+    </div>
+    <div class="problem-stat">
+      <div class="stat-icon icon-blue">📉</div>
+      <div>
+        <p style="font-size:13px;font-weight:500;color:var(--color-text-primary);margin-bottom:2px;">MSMEs fail before they even start</p>
+        <p class="prose" style="font-size:13px;">Without knowing they qualify for LGU micro-financing, DOLE livelihood programs, or Negosyo Center grants, many just give up — or operate informally with legal risk.</p>
+      </div>
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <!-- CORE ISSUE -->
+  <div class="section">
+    <p class="section-label">The Core System Problem</p>
+    <p class="section-title">The system wasn't designed for the people who need it most.</p>
+    <p class="prose">Philippine MSME formalization processes were built for businesses with lawyers, accountants, and administrative staff. The system assumes you have time to research, money to spare, and fluency in legal English. Small vendors — sari-sari store owners, street food entrepreneurs, home-based crafters — have none of these. The result: high informal sector rates, missed government support, and a perpetuating "cost of dreaming" where ambition is punished by bureaucracy.</p>
+
+    <div class="taglish-quote">"Gusto ko sana mag-rehistro ng carinderia sa Sampaloc pero hindi ko alam kung saan magsisimula."</div>
+
+    <div style="margin-top:1rem;">
+      <span class="pill pill-coral">Specific beneficiary: micro-entrepreneurs</span>
+      <span class="pill pill-purple">Systemic barrier: bureaucratic complexity</span>
+      <span class="pill pill-amber">Cost of dreaming: time + money + opportunity</span>
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <!-- THE SOLUTION -->
+  <div class="section">
+    <p class="section-label">The Solution</p>
+    <p class="section-title">NegosyoNav — a personalized, location-aware guide that turns bureaucracy into a manageable checklist.</p>
+    <p class="prose" style="margin-bottom:1rem;">Instead of a static government page, NegosyoNav is a conversational, AI-powered workflow that meets the user where they are — in their language, their barangay, and their schedule.</p>
+
+    <div class="flow-row">
+      <span class="flow-step">User chats in Taglish</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-step">AI builds Lakad Roadmap</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-step">Forms auto-filled</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-step">Grants matched</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-step">Community validates</span>
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <!-- FEATURES -->
+  <div class="section">
+    <p class="section-label">Core Features</p>
+    <p class="section-title">Eight pillars, built for real Philippine conditions.</p>
+
+    <div class="feature-grid">
+
+      <div class="feature-card">
+        <p class="feature-num">01 · AI Intake</p>
+        <p class="feature-name">Taglish Conversational Chat</p>
+        <p class="feature-desc">User describes their business in natural language — Filipino, Taglish, or English. No forms, no jargon upfront.</p>
+      </div>
+
+      <div class="feature-card">
+        <p class="feature-num">02 · Roadmap</p>
+        <p class="feature-name">Location-Aware Lakad Roadmap</p>
+        <p class="feature-desc">Personalized step-by-step guide based on LGU — Taguig, Cavite, Sampaloc, etc. — with exact offices, windows, and requirements.</p>
+      </div>
+
+      <div class="feature-card">
+        <p class="feature-num">03 · Automation</p>
+        <p class="feature-name">Form Auto-Fill</p>
+        <p class="feature-desc">Pulls user input and pre-populates DTI, Barangay Clearance, and BIR forms — print-ready. No need to re-enter data.</p>
+      </div>
+
+      <div class="feature-card">
+        <p class="feature-num">04 · Matching</p>
+        <p class="feature-name">Grant & Livelihood Matching</p>
+        <p class="feature-desc">Checks profile against LGU grants, DOLE livelihood programs, and Negosyo Center funds. Alerts user if they qualify.</p>
+      </div>
+
+      <div class="feature-card">
+        <p class="feature-num">05 · Community</p>
+        <p class="feature-name">Negosyante Hub</p>
+        <p class="feature-desc">Reddit-style community board. Real vendors share tips, warn about fixers, post actual experiences at their LGU — peer-to-peer truth.</p>
+      </div>
+
+      <div class="feature-card">
+        <p class="feature-num">06 · Scheduling</p>
+        <p class="feature-name">Time-Based Task Planner</p>
+        <p class="feature-desc">"Mayroon ka bang 2 oras ngayon?" AI suggests which steps you can realistically complete today based on your available time.</p>
+      </div>
+
+      <div class="feature-card">
+        <p class="feature-num">07 · Navigation</p>
+        <p class="feature-name">Smart Place Finder</p>
+        <p class="feature-desc">Google Maps integration shows the nearest DTI Negosyo Center, BIR RDO, or City Hall — with queue tips and best times to go.</p>
+      </div>
+
+      <div class="feature-card">
+        <p class="feature-num">08 · Costs</p>
+        <p class="feature-name">Registration Cost Estimator</p>
+        <p class="feature-desc">Breaks down every fee — DTI registration (₱200-₱2,000), Mayor's Permit, BIR ARF — so vendors can budget before they queue.</p>
+      </div>
+
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <!-- RUBRIC ALIGNMENT -->
+  <div class="section">
+    <p class="section-label">Rubric Alignment</p>
+    <p class="section-title">How NegosyoNav scores on the judging criteria.</p>
+
+    <div class="card" style="margin-top:0.5rem;">
+      <div class="rubric-row">
+        <span class="rubric-pct">25%</span>
+        <div class="rubric-bar-bg"><div class="rubric-bar" style="width:95%;background:#1D9E75;"></div></div>
+        <span class="rubric-label">Mission & Impact</span>
+      </div>
+      <div class="rubric-row">
+        <span class="rubric-pct">20%</span>
+        <div class="rubric-bar-bg"><div class="rubric-bar" style="width:88%;background:#534AB7;"></div></div>
+        <span class="rubric-label">Feasibility & PH Fit</span>
+      </div>
+      <div class="rubric-row">
+        <span class="rubric-pct">20%</span>
+        <div class="rubric-bar-bg"><div class="rubric-bar" style="width:85%;background:#185FA5;"></div></div>
+        <span class="rubric-label">Technical Execution</span>
+      </div>
+      <div class="rubric-row">
+        <span class="rubric-pct">15%</span>
+        <div class="rubric-bar-bg"><div class="rubric-bar" style="width:92%;background:#993C1D;"></div></div>
+        <span class="rubric-label">UX & Inclusivity</span>
+      </div>
+      <div class="rubric-row">
+        <span class="rubric-pct">10%</span>
+        <div class="rubric-bar-bg"><div class="rubric-bar" style="width:80%;background:#BA7517;"></div></div>
+        <span class="rubric-label">Google Tech Integration</span>
+      </div>
+      <div class="rubric-row">
+        <span class="rubric-pct">10%</span>
+        <div class="rubric-bar-bg"><div class="rubric-bar" style="width:90%;background:#888780;"></div></div>
+        <span class="rubric-label">Pitch & Demo Clarity</span>
+      </div>
+    </div>
+
+    <div style="margin-top:1rem;">
+      <span class="pill pill-teal">Google Maps — Smart Place Finder</span>
+      <span class="pill pill-blue">Gemini / Vertex AI — Taglish Chat</span>
+      <span class="pill pill-amber">Firebase — Community Hub + Auth</span>
+      <span class="pill pill-purple">Gemini Flash — Form Auto-Fill</span>
+    </div>
+  </div>
+
+</div>

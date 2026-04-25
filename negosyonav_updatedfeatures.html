@@ -1,0 +1,248 @@
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+.tab-row{display:flex;gap:8px;margin-bottom:1.5rem;flex-wrap:wrap;}
+.tab-btn{font-size:13px;padding:6px 14px;border-radius:6px;border:0.5px solid var(--color-border-tertiary);cursor:pointer;background:transparent;color:var(--color-text-secondary);}
+.tab-btn.on{background:var(--color-background-secondary);color:var(--color-text-primary);font-weight:500;border-color:var(--color-border-secondary);}
+.panel{display:none;}.panel.vis{display:block;}
+
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-top:1rem;}
+.fcard{background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:.875rem 1rem;border:0.5px solid transparent;transition:border-color .15s;}
+.fcard.highlight{background:var(--color-background-primary);border-color:var(--color-border-success);}
+.fnum{font-size:11px;font-weight:500;color:var(--color-text-tertiary);margin-bottom:4px;}
+.fname{font-size:13px;font-weight:500;color:var(--color-text-primary);margin-bottom:4px;}
+.fdesc{font-size:12px;line-height:1.55;color:var(--color-text-secondary);}
+.fnew{display:inline-block;font-size:10px;padding:2px 7px;border-radius:10px;background:var(--color-background-success);color:var(--color-text-success);font-weight:500;margin-bottom:5px;}
+.fstar{display:inline-block;font-size:10px;padding:2px 7px;border-radius:10px;background:var(--color-background-warning);color:var(--color-text-warning);font-weight:500;margin-bottom:5px;}
+
+.r-section{margin-bottom:1.75rem;}
+.r-label{font-size:11px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:var(--color-text-tertiary);margin-bottom:.5rem;}
+.r-title{font-size:16px;font-weight:500;color:var(--color-text-primary);margin-bottom:.5rem;}
+.r-body{font-size:13px;line-height:1.65;color:var(--color-text-secondary);margin-bottom:.75rem;}
+.r-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:8px;margin-top:.75rem;}
+.r-card{background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);padding:.875rem 1rem;}
+.r-card-label{font-size:10px;font-weight:500;color:var(--color-text-tertiary);margin-bottom:4px;text-transform:uppercase;letter-spacing:.05em;}
+.r-card-title{font-size:13px;font-weight:500;color:var(--color-text-primary);margin-bottom:4px;}
+.r-card-body{font-size:12px;line-height:1.5;color:var(--color-text-secondary);}
+.pill{display:inline-block;font-size:11px;padding:3px 9px;border-radius:20px;margin:2px;}
+.p-teal{background:#E1F5EE;color:#0F6E56;}
+.p-purple{background:#EEEDFE;color:#3C3489;}
+.p-amber{background:#FAEEDA;color:#854F0B;}
+.p-coral{background:#FAECE7;color:#993C1D;}
+.p-gray{background:var(--color-background-secondary);color:var(--color-text-secondary);border:0.5px solid var(--color-border-tertiary);}
+
+.timeline{position:relative;padding-left:20px;margin-top:.75rem;}
+.timeline::before{content:'';position:absolute;left:6px;top:0;bottom:0;width:1px;background:var(--color-border-secondary);}
+.t-item{position:relative;margin-bottom:1rem;padding-left:16px;}
+.t-dot{position:absolute;left:-14px;top:3px;width:10px;height:10px;border-radius:50%;border:1.5px solid var(--color-border-secondary);background:var(--color-background-primary);}
+.t-dot.teal{background:#1D9E75;border-color:#1D9E75;}
+.t-dot.purple{background:#534AB7;border-color:#534AB7;}
+.t-dot.amber{background:#BA7517;border-color:#BA7517;}
+.t-head{font-size:13px;font-weight:500;color:var(--color-text-primary);margin-bottom:2px;}
+.t-body{font-size:12px;color:var(--color-text-secondary);line-height:1.5;}
+.divider{border:none;border-top:0.5px solid var(--color-border-tertiary);margin:1.5rem 0;}
+</style>
+
+<div style="padding:1rem 0;">
+<div class="tab-row">
+  <button class="tab-btn on" onclick="show('features',this)">Nine features</button>
+  <button class="tab-btn" onclick="show('retention',this)">Solving retention</button>
+</div>
+
+<div id="p-features" class="panel vis">
+  <div style="font-size:13px;color:var(--color-text-secondary);margin-bottom:.25rem;">The highlighted card is new. The starred card is the recommended hackathon MVP anchor.</div>
+  <div class="grid">
+
+    <div class="fcard">
+      <div class="fnum">01 · AI intake</div>
+      <div class="fname">Taglish conversational chat</div>
+      <div class="fdesc">User describes their business in natural language. Gemini extracts business type, LGU, and ownership structure.</div>
+    </div>
+
+    <div class="fcard">
+      <div class="fnum">02 · Roadmap</div>
+      <div class="fname">Location-aware Lakad Roadmap</div>
+      <div class="fdesc">Personalized, LGU-specific step-by-step guide — Taguig, Cavite, Sampaloc — with correct step ordering, offices, and requirements per city.</div>
+    </div>
+
+    <div class="fcard highlight">
+      <div class="fnew">New</div>
+      <div class="fstar">MVP anchor</div>
+      <div class="fnum">03 · Automation</div>
+      <div class="fname">Smart form auto-fill + PDF download</div>
+      <div class="fdesc">Gemini extracts answers from the chat and pre-populates DTI Form, Barangay Clearance, and BIR Form 1901 fields automatically. User reviews, taps "I-download," and gets a print-ready PDF — no re-typing, no blank form confusion. Works offline after generation.</div>
+    </div>
+
+    <div class="fcard">
+      <div class="fnum">04 · Matching</div>
+      <div class="fname">Grant & livelihood matching</div>
+      <div class="fdesc">Checks user profile against LGU grants, DOLE livelihood programs, and Negosyo Center funds. Surfaces an alert card automatically if eligible — user doesn't have to search.</div>
+    </div>
+
+    <div class="fcard">
+      <div class="fnum">05 · Community</div>
+      <div class="fname">Negosyante Hub</div>
+      <div class="fdesc">Reddit-style community board. Vendors share LGU-specific tips, fixer warnings, and queue times. Posts are tagged by step + LGU so tips surface contextually inside the roadmap.</div>
+    </div>
+
+    <div class="fcard">
+      <div class="fnum">06 · Scheduling</div>
+      <div class="fname">Time-based task planner</div>
+      <div class="fdesc">"Mayroon ka bang 2 oras ngayon?" AI surfaces only the steps completable within the user's available time and day, accounting for office hours.</div>
+    </div>
+
+    <div class="fcard">
+      <div class="fnum">07 · Navigation</div>
+      <div class="fname">Smart place finder</div>
+      <div class="fdesc">Google Maps integration shows the nearest DTI Negosyo Center, BIR RDO, or City Hall for the user's LGU — with community-sourced queue tips and best times to visit.</div>
+    </div>
+
+    <div class="fcard">
+      <div class="fnum">08 · Costs</div>
+      <div class="fname">Registration cost estimator</div>
+      <div class="fdesc">Itemized breakdown of every registration fee — DTI (₱200–₱2,000 by business name type), Mayor's Permit, BIR ARF — so vendors can budget before they queue.</div>
+    </div>
+
+    <div class="fcard">
+      <div class="fnum">09 · Progress</div>
+      <div class="fname">Renewal & deadline calendar</div>
+      <div class="fdesc">After registration, the app tracks renewal deadlines — Mayor's Permit (January every year), BIR quarterly filings, DTI renewal — and sends push reminders 2 weeks before. This is the retention engine.</div>
+    </div>
+
+  </div>
+
+  <div style="margin-top:1.25rem;display:flex;flex-wrap:wrap;gap:6px;align-items:center;">
+    <span style="font-size:12px;color:var(--color-text-tertiary);">MVP priority order:</span>
+    <span class="pill p-teal">03 Form auto-fill</span>
+    <span class="pill p-teal">01 Chat intake</span>
+    <span class="pill p-teal">02 Roadmap</span>
+    <span class="pill p-amber">04 Grant matching</span>
+    <span class="pill p-purple">05 Hub</span>
+    <span class="pill p-gray">06–09 stretch</span>
+  </div>
+</div>
+
+<div id="p-retention" class="panel">
+
+  <div class="r-section">
+    <div class="r-label">The problem</div>
+    <div class="r-title">Registration is a one-time event. The app can't be.</div>
+    <div class="r-body">Once a user completes their Barangay Clearance, DTI, Mayor's Permit, and BIR registration, there's no obvious reason to open the app again. This is the single biggest product risk for NegosyoNav. Here's how to solve it at each time horizon.</div>
+  </div>
+
+  <hr class="divider">
+
+  <div class="r-section">
+    <div class="r-label">Short term · During registration (weeks 1–8)</div>
+    <div class="r-title">Registration takes weeks, not a day — the roadmap is already a multi-session feature.</div>
+    <div class="r-body">The average MSME registration process across all four steps takes 2–6 weeks of back-and-forth visits. The Lakad Roadmap is inherently a multi-session experience. Progress is saved to Firestore, so every incomplete step is a reason to return.</div>
+    <div class="r-grid">
+      <div class="r-card">
+        <div class="r-card-label">Trigger</div>
+        <div class="r-card-title">Saved progress</div>
+        <div class="r-card-body">Firestore saves completed steps. Next session opens exactly where they left off — like an order tracker.</div>
+      </div>
+      <div class="r-card">
+        <div class="r-card-label">Trigger</div>
+        <div class="r-card-title">PDF re-download</div>
+        <div class="r-card-body">User loses or crumples their printout. They return to NegosyoNav to re-download the pre-filled form — not start over on a blank sheet.</div>
+      </div>
+      <div class="r-card">
+        <div class="r-card-label">Trigger</div>
+        <div class="r-card-title">Step-failed notification</div>
+        <div class="r-card-body">"Naalala mo ba? 3 araw ka nang nakatigil sa DTI step." Gentle push nudge after inactivity.</div>
+      </div>
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <div class="r-section">
+    <div class="r-label">Medium term · Post-registration (months 1–6)</div>
+    <div class="r-title">"Registered ka na — ano ang susunod?"</div>
+    <div class="r-body">Registration is just the beginning of running a business. There are 5–7 immediate follow-up steps that new registrants always need. NegosyoNav becomes the "what's next" guide for each of these — every one is a new Lakad Roadmap.</div>
+    <div class="timeline">
+      <div class="t-item">
+        <div class="t-dot teal"></div>
+        <div class="t-head">Open a business bank account</div>
+        <div class="t-body">New roadmap: requirements per bank (BDO, UnionBank, Landbank for gov't vendors). Very high demand — vendors always ask this right after BIR registration.</div>
+      </div>
+      <div class="t-item">
+        <div class="t-dot teal"></div>
+        <div class="t-head">SSS / PhilHealth / Pag-IBIG employer registration</div>
+        <div class="t-body">If they plan to hire kahit isang helper. Triggers a new roadmap with pre-filled employer forms.</div>
+      </div>
+      <div class="t-item">
+        <div class="t-dot amber"></div>
+        <div class="t-head">BIR quarterly filing guide</div>
+        <div class="t-body">First quarterly filing is 90 days after BIR registration. Most new registrants have no idea how to do this — huge pain point and high search volume.</div>
+      </div>
+      <div class="t-item">
+        <div class="t-dot amber"></div>
+        <div class="t-head">Official Receipt (OR) printing</div>
+        <div class="t-body">BIR-accredited printers, ATP application — every new registrant needs this and doesn't know the process.</div>
+      </div>
+      <div class="t-item">
+        <div class="t-dot purple"></div>
+        <div class="t-head">DTI trademark registration</div>
+        <div class="t-body">Protecting the business name. Small step, big peace of mind. New roadmap.</div>
+      </div>
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <div class="r-section">
+    <div class="r-label">Long term · Ongoing (year 1+)</div>
+    <div class="r-title">Annual renewals + the Hub turn NegosyoNav into a permanent companion.</div>
+    <div class="r-body">After the first year, the app becomes a compliance calendar. Every registered business in the Philippines has recurring obligations — and most small vendors miss deadlines because nobody reminds them.</div>
+    <div class="r-grid">
+      <div class="r-card">
+        <div class="r-card-label">January every year</div>
+        <div class="r-card-title">Mayor's Permit renewal</div>
+        <div class="r-card-body">Push notification 2 weeks before. Pre-fills the renewal form with their saved data. They just re-download and go.</div>
+      </div>
+      <div class="r-card">
+        <div class="r-card-label">Quarterly</div>
+        <div class="r-card-title">BIR filing reminders</div>
+        <div class="r-card-body">April, July, October, January. Most micro-entrepreneurs miss these. NegosyoNav becomes the only reminder they have.</div>
+      </div>
+      <div class="r-card">
+        <div class="r-card-label">Ongoing</div>
+        <div class="r-card-title">New grant cycles</div>
+        <div class="r-card-body">LGU and DOLE programs open at different times of year. Push alert when a new program matching their profile opens. Brings them back without them searching.</div>
+      </div>
+      <div class="r-card">
+        <div class="r-card-label">Ongoing</div>
+        <div class="r-card-title">Negosyante Hub</div>
+        <div class="r-card-body">If someone replies to their post or upvotes their tip, they return. Community reciprocity is the strongest organic retention mechanic available.</div>
+      </div>
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <div class="r-section">
+    <div class="r-label">The honest answer for judges</div>
+    <div class="r-title">The PDF download is actually the first retention hook.</div>
+    <div class="r-body">A user who downloads a pre-filled DTI form has now stored value in the app — their data is there. When they need to re-download because they lost the printout, when the Mayor's Permit renewal comes around and their info is already pre-filled, when they need the BIR form for quarterly filing — the saved profile is the reason to return. The form auto-fill feature isn't just a convenience: it's the data anchor that makes NegosyoNav worth keeping installed.</div>
+    <div style="margin-top:.75rem;display:flex;flex-wrap:wrap;gap:6px;">
+      <span class="pill p-teal">Saved profile = data anchor</span>
+      <span class="pill p-amber">Annual renewals = calendar hook</span>
+      <span class="pill p-purple">Hub replies = social hook</span>
+      <span class="pill p-coral">New grants = push hook</span>
+      <span class="pill p-gray">Post-registration roadmaps = value expansion</span>
+    </div>
+  </div>
+
+</div>
+</div>
+
+<script>
+function show(id, btn) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('vis'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('on'));
+  document.getElementById('p-' + id).classList.add('vis');
+  btn.classList.add('on');
+}
+</script>

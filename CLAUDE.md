@@ -2,6 +2,14 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## About the app
+
+NegosyoNav is a mobile-first PWA that helps Filipino micro-entrepreneurs (sari-sari store owners, carinderia operators, home-based vendors) navigate Philippine business registration. The user describes their business in Taglish to a Gemini-powered chatbot; the app responds with a personalized "Lakad Roadmap" — an LGU-specific, step-by-step guide through DTI, Barangay, Cedula, Mayor's Permit, and BIR registration. Along the way it auto-fills government forms from the user's profile, matches them to grants (BMBE, DOLE Kabuhayan, SB Corp), and surfaces peer tips from the Negosyante Hub community board.
+
+Current scope: **Manila City only** (multi-LGU support is planned — see `docs/DEV_TASKS.md`). The form auto-fill + PDF download is the MVP anchor and the core retention hook (saved profile = reason to return for renewals + post-registration roadmaps).
+
+Stack: React 19 + wouter + shadcn/ui + Tailwind v4 (client) · Express + tRPC (server) · Firebase Auth + Firestore · Gemini via OpenAI-compatible endpoint.
+
 ## Commands
 
 Package manager: **pnpm** (v10.4.1, pinned via `packageManager`). Use `pnpm <script>`.
