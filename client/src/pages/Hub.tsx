@@ -1,7 +1,6 @@
 /*
  * Negosyante Hub — Community Board
- * Reddit-style community where real vendors share LGU tips, fixer warnings,
- * and actual experiences. Filtered by LGU tag.
+ * Design System Refresh: Community Purple for Hub identity, larger touch targets.
  */
 import { useState, useMemo } from "react";
 import { useLocation } from "wouter";
@@ -13,7 +12,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Streamdown } from "streamdown";
 import {
   ArrowLeft,
-  MapPin,
   Users,
   ThumbsUp,
   ThumbsDown,
@@ -35,11 +33,12 @@ const CATEGORIES = [
   { value: "experience", label: "Kwento", icon: Star },
 ] as const;
 
-const CATEGORY_STYLES: Record<string, { bg: string; text: string; border: string; icon: string }> = {
-  tip: { bg: "bg-teal/10", text: "text-teal", border: "border-teal/20", icon: "text-teal" },
-  warning: { bg: "bg-red-50", text: "text-red-700", border: "border-red-200", icon: "text-red-500" },
-  question: { bg: "bg-blue-50", text: "text-blue-700", border: "border-blue-200", icon: "text-blue-500" },
-  experience: { bg: "bg-mango/10", text: "text-earth-brown", border: "border-mango/20", icon: "text-mango" },
+/* Design.md: Community chips use purple (#534AB7) */
+const CATEGORY_STYLES: Record<string, { bg: string; text: string; border: string }> = {
+  tip:        { bg: "bg-community-light", text: "text-community", border: "border-community/20" },
+  warning:    { bg: "bg-destructive/10",  text: "text-destructive", border: "border-destructive/20" },
+  question:   { bg: "bg-primary/10",      text: "text-primary",     border: "border-primary/20" },
+  experience: { bg: "bg-mango-light",     text: "text-foreground",  border: "border-mango/20" },
 };
 
 const CATEGORY_ICONS: Record<string, typeof Lightbulb> = {
@@ -49,7 +48,6 @@ const CATEGORY_ICONS: Record<string, typeof Lightbulb> = {
   experience: Star,
 };
 
-// Seed data for demo purposes when DB is empty
 const SEED_POSTS = [
   {
     id: "seed-1",
@@ -111,7 +109,8 @@ const SEED_POSTS = [
 
 export default function Hub() {
   const [, navigate] = useLocation();
-  const { user, isAuthenticated } = useAuth();
+  const { isAuthenticated } = useAuth();
+
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [newTitle, setNewTitle] = useState("");
@@ -129,10 +128,8 @@ export default function Hub() {
   });
   const voteMutation = trpc.community.vote.useMutation({ onSuccess: () => refetch() });
 
-  // Combine DB posts with seed data
   const allPosts = useMemo(() => {
     const real = dbPosts || [];
-    // Only show seed data if no real posts exist
     if (real.length === 0) return SEED_POSTS;
     return real;
   }, [dbPosts]);
@@ -143,32 +140,20 @@ export default function Hub() {
   }, [allPosts, selectedCategory]);
 
   const handleVote = (postId: string, voteType: "up" | "down") => {
-    if (!isAuthenticated) {
-      window.location.href = getLoginUrl();
-      return;
-    }
+    if (!isAuthenticated) { window.location.href = getLoginUrl(); return; }
     voteMutation.mutate({ postId, voteType });
   };
 
   const handleCreatePost = () => {
-    if (!isAuthenticated) {
-      window.location.href = getLoginUrl();
-      return;
-    }
+    if (!isAuthenticated) { window.location.href = getLoginUrl(); return; }
     if (!newTitle.trim() || !newContent.trim()) return;
-    createPost.mutate({
-      title: newTitle,
-      content: newContent,
-      category: newCategory,
-      lguTag: "manila_city",
-    });
+    createPost.mutate({ title: newTitle, content: newContent, category: newCategory, lguTag: "manila_city" });
   };
 
   const formatDate = (date: Date | string) => {
     const d = new Date(date);
     const now = new Date();
-    const diff = now.getTime() - d.getTime();
-    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const days = Math.floor((now.getTime() - d.getTime()) / (1000 * 60 * 60 * 24));
     if (days === 0) return "Ngayon";
     if (days === 1) return "Kahapon";
     if (days < 7) return `${days} araw na ang nakakaraan`;
@@ -176,54 +161,57 @@ export default function Hub() {
   };
 
   return (
-    <div className="min-h-screen bg-warm-cream">
-      {/* Header */}
-      <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-border">
+    <div className="min-h-screen bg-background">
+      {/* Header — community purple identity */}
+      <header className="sticky top-0 z-50 bg-white border-b border-border">
         <div className="container flex items-center justify-between h-14">
           <div className="flex items-center gap-3">
-            <button onClick={() => navigate("/")} className="text-muted-foreground hover:text-foreground transition-colors">
-              <ArrowLeft className="w-5 h-5" />
+            <button
+              onClick={() => navigate("/")}
+              className="p-2 rounded-xl hover:bg-muted transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
+              aria-label="Bumalik"
+            >
+              <ArrowLeft className="w-5 h-5 text-foreground" />
             </button>
             <div>
-              <h1 className="font-[var(--font-display)] text-base text-earth-brown leading-tight">
+              <h1 className="font-bold text-base text-foreground leading-tight"
+                style={{ fontFamily: "var(--font-display)" }}>
                 Negosyante Hub
               </h1>
-              <p className="text-[10px] text-muted-foreground font-[var(--font-body)]">
+              <p className="text-xs text-muted-foreground">
                 Manila City • Community Board
               </p>
             </div>
           </div>
           <Button
             onClick={() => {
-              if (!isAuthenticated) {
-                window.location.href = getLoginUrl();
-                return;
-              }
+              if (!isAuthenticated) { window.location.href = getLoginUrl(); return; }
               setShowCreateForm(true);
             }}
-            className="bg-teal hover:bg-teal/90 text-white text-xs px-3 py-1.5 h-auto rounded-full"
+            className="bg-community hover:bg-community/90 text-white text-sm font-bold px-4 h-10 rounded-full"
+            style={{ fontFamily: "var(--font-display)" }}
           >
-            <MessageSquarePlus className="w-3.5 h-3.5 mr-1" />
+            <MessageSquarePlus className="w-4 h-4 mr-1.5" />
             Mag-post
           </Button>
         </div>
       </header>
 
-      {/* Category Filter */}
-      <div className="sticky top-14 z-40 bg-warm-cream/95 backdrop-blur-sm border-b border-border/50">
-        <div className="container py-2">
-          <div className="flex gap-2 overflow-x-auto scrollbar-hide">
+      {/* Category Filter — community purple for active state */}
+      <div className="sticky top-14 z-40 bg-background/95 backdrop-blur-sm border-b border-border/50">
+        <div className="container py-3">
+          <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-0.5">
             {CATEGORIES.map(({ value, label, icon: Icon }) => (
               <button
                 key={value}
                 onClick={() => setSelectedCategory(value)}
-                className={`shrink-0 flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full transition-all ${
+                className={`shrink-0 flex items-center gap-1.5 text-sm font-semibold px-4 py-2.5 rounded-full transition-all min-h-[44px] ${
                   selectedCategory === value
-                    ? "bg-teal text-white shadow-sm"
-                    : "bg-white text-muted-foreground border border-border hover:border-teal/30"
+                    ? "bg-community text-white shadow-sm"
+                    : "bg-white text-muted-foreground border border-border hover:border-community/30 hover:text-community"
                 }`}
               >
-                <Icon className="w-3.5 h-3.5" />
+                <Icon className="w-4 h-4" />
                 {label}
               </button>
             ))}
@@ -232,7 +220,7 @@ export default function Hub() {
       </div>
 
       {/* Posts List */}
-      <div className="container max-w-2xl py-4 space-y-3 pb-20">
+      <div className="container max-w-2xl py-4 space-y-3 pb-24">
         <AnimatePresence>
           {filteredPosts.map((post, i) => {
             const style = CATEGORY_STYLES[post.category] || CATEGORY_STYLES.tip;
@@ -240,33 +228,27 @@ export default function Hub() {
             return (
               <motion.div
                 key={post.id}
-                initial={{ opacity: 0, y: 12 }}
+                initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.3, delay: i * 0.05 }}
-                className="bg-white rounded-2xl border border-border shadow-sm overflow-hidden"
+                className="bg-white rounded-2xl border border-border overflow-hidden"
               >
-                {/* Post Header */}
-                <div className="px-4 pt-4 pb-2">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      <div className="w-7 h-7 rounded-full bg-teal/10 flex items-center justify-center">
-                        <span className="text-xs font-bold text-teal">
+                {/* Post header */}
+                <div className="px-4 pt-4 pb-3">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-9 h-9 rounded-full bg-community-light flex items-center justify-center shrink-0">
+                        <span className="text-sm font-bold text-community">
                           {post.authorName.charAt(0)}
                         </span>
                       </div>
                       <div>
-                        <span className="text-xs font-semibold text-foreground">
-                          {post.authorName}
-                        </span>
-                        <span className="text-[10px] text-muted-foreground ml-2">
-                          {formatDate(post.createdAt)}
-                        </span>
+                        <p className="text-sm font-bold text-foreground leading-tight">{post.authorName}</p>
+                        <p className="text-xs text-muted-foreground">{formatDate(post.createdAt)}</p>
                       </div>
                     </div>
-                    <span
-                      className={`inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full ${style.bg} ${style.text} border ${style.border}`}
-                    >
-                      <CategoryIcon className={`w-3 h-3 ${style.icon}`} />
+                    <span className={`inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full ${style.bg} ${style.text} border ${style.border}`}>
+                      <CategoryIcon className="w-3.5 h-3.5" />
                       {post.category === "tip" && "Tip"}
                       {post.category === "warning" && "Babala"}
                       {post.category === "question" && "Tanong"}
@@ -274,39 +256,40 @@ export default function Hub() {
                     </span>
                   </div>
 
-                  {/* Fixer Warning Badge */}
+                  {/* Fixer warning banner */}
                   {post.category === "warning" && (
-                    <div className="flex items-center gap-1.5 mb-2 px-2 py-1 bg-red-50 border border-red-200 rounded-lg">
-                      <Shield className="w-3.5 h-3.5 text-red-500" />
-                      <span className="text-[10px] font-semibold text-red-700">
-                        FIXER WARNING
+                    <div className="flex items-center gap-2 mb-3 px-3 py-2 bg-destructive/10 border border-destructive/20 rounded-xl">
+                      <Shield className="w-4 h-4 text-destructive shrink-0" />
+                      <span className="text-xs font-bold text-destructive uppercase tracking-wide">
+                        Fixer Warning
                       </span>
                     </div>
                   )}
 
-                  <h3 className="text-sm font-bold text-earth-brown leading-snug mb-1">
+                  <h3 className="font-bold text-base text-foreground leading-snug mb-2"
+                    style={{ fontFamily: "var(--font-display)" }}>
                     {post.title}
                   </h3>
-                  <div className="text-xs text-muted-foreground leading-relaxed">
+                  <div className="text-sm text-muted-foreground leading-relaxed">
                     <Streamdown>{post.content}</Streamdown>
                   </div>
                 </div>
 
-                {/* Post Actions */}
-                <div className="px-4 py-2 border-t border-border/50 flex items-center gap-4">
+                {/* Vote actions — 48dp tap targets */}
+                <div className="px-4 py-2 border-t border-border/50 flex items-center gap-1">
                   <button
-                    onClick={() => handleVote(post.id, "up")}
-                    className="flex items-center gap-1 text-xs text-muted-foreground hover:text-teal transition-colors"
+                    onClick={() => handleVote(String(post.id), "up")}
+                    className="flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors min-h-[44px] px-3 rounded-xl hover:bg-muted"
                   >
-                    <ThumbsUp className="w-3.5 h-3.5" />
-                    <span className="font-[var(--font-mono)]">{post.upvotes}</span>
+                    <ThumbsUp className="w-4 h-4" />
+                    <span className="font-semibold" style={{ fontFamily: "var(--font-mono)" }}>{post.upvotes}</span>
                   </button>
                   <button
-                    onClick={() => handleVote(post.id, "down")}
-                    className="flex items-center gap-1 text-xs text-muted-foreground hover:text-red-500 transition-colors"
+                    onClick={() => handleVote(String(post.id), "down")}
+                    className="flex items-center gap-2 text-sm text-muted-foreground hover:text-destructive transition-colors min-h-[44px] px-3 rounded-xl hover:bg-muted"
                   >
-                    <ThumbsDown className="w-3.5 h-3.5" />
-                    <span className="font-[var(--font-mono)]">{post.downvotes}</span>
+                    <ThumbsDown className="w-4 h-4" />
+                    <span className="font-semibold" style={{ fontFamily: "var(--font-mono)" }}>{post.downvotes}</span>
                   </button>
                 </div>
               </motion.div>
@@ -315,12 +298,12 @@ export default function Hub() {
         </AnimatePresence>
 
         {filteredPosts.length === 0 && (
-          <div className="text-center py-12">
-            <Users className="w-10 h-10 text-muted-foreground mx-auto mb-3 opacity-50" />
-            <p className="text-sm text-muted-foreground">
+          <div className="text-center py-16">
+            <Users className="w-12 h-12 text-muted-foreground/30 mx-auto mb-4" />
+            <p className="text-base font-semibold text-muted-foreground">
               Wala pang posts sa category na ito.
             </p>
-            <p className="text-xs text-muted-foreground mt-1">
+            <p className="text-sm text-muted-foreground mt-1">
               Maging una kang mag-share ng experience mo!
             </p>
           </div>
@@ -338,23 +321,26 @@ export default function Hub() {
             onClick={() => setShowCreateForm(false)}
           >
             <motion.div
-              initial={{ y: 100, opacity: 0 }}
+              initial={{ y: 80, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
-              exit={{ y: 100, opacity: 0 }}
+              exit={{ y: 80, opacity: 0 }}
               onClick={(e) => e.stopPropagation()}
-              className="bg-white w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl p-5 max-h-[80vh] overflow-y-auto"
+              className="bg-white w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl p-5 max-h-[85vh] overflow-y-auto"
             >
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="font-[var(--font-display)] text-lg text-earth-brown">
+              <div className="flex items-center justify-between mb-5">
+                <h2 className="font-bold text-lg text-foreground" style={{ fontFamily: "var(--font-display)" }}>
                   Mag-share sa Hub
                 </h2>
-                <button onClick={() => setShowCreateForm(false)}>
+                <button
+                  onClick={() => setShowCreateForm(false)}
+                  className="p-2 rounded-xl hover:bg-muted min-h-[44px] min-w-[44px] flex items-center justify-center"
+                >
                   <X className="w-5 h-5 text-muted-foreground" />
                 </button>
               </div>
 
-              {/* Category Selector */}
-              <div className="flex gap-2 mb-4">
+              {/* Category selector */}
+              <div className="flex flex-wrap gap-2 mb-5">
                 {(["tip", "warning", "question", "experience"] as const).map((cat) => {
                   const style = CATEGORY_STYLES[cat];
                   const Icon = CATEGORY_ICONS[cat];
@@ -362,13 +348,13 @@ export default function Hub() {
                     <button
                       key={cat}
                       onClick={() => setNewCategory(cat)}
-                      className={`flex items-center gap-1 text-xs font-medium px-3 py-1.5 rounded-full border transition-all ${
+                      className={`flex items-center gap-1.5 text-sm font-bold px-4 py-2.5 rounded-full border transition-all min-h-[44px] ${
                         newCategory === cat
-                          ? `${style.bg} ${style.text} ${style.border} ring-2 ring-offset-1 ring-teal/20`
+                          ? `${style.bg} ${style.text} ${style.border}`
                           : "bg-white text-muted-foreground border-border"
                       }`}
                     >
-                      <Icon className="w-3.5 h-3.5" />
+                      <Icon className="w-4 h-4" />
                       {cat === "tip" && "Tip"}
                       {cat === "warning" && "Babala"}
                       {cat === "question" && "Tanong"}
@@ -378,30 +364,27 @@ export default function Hub() {
                 })}
               </div>
 
-              {/* Title */}
               <input
                 type="text"
                 value={newTitle}
                 onChange={(e) => setNewTitle(e.target.value)}
                 placeholder="Ano ang title ng post mo?"
-                className="w-full px-4 py-3 rounded-xl bg-muted border border-border text-sm focus:outline-none focus:ring-2 focus:ring-teal/40 mb-3 font-[var(--font-body)]"
+                className="w-full px-4 h-14 rounded-xl bg-muted border border-border text-base focus:outline-none focus:ring-2 focus:ring-community/40 mb-3"
               />
-
-              {/* Content */}
               <textarea
                 value={newContent}
                 onChange={(e) => setNewContent(e.target.value)}
                 placeholder="I-share ang iyong experience, tip, o tanong..."
-                rows={4}
-                className="w-full px-4 py-3 rounded-xl bg-muted border border-border text-sm focus:outline-none focus:ring-2 focus:ring-teal/40 mb-4 resize-none font-[var(--font-body)]"
+                rows={5}
+                className="w-full px-4 py-3 rounded-xl bg-muted border border-border text-base focus:outline-none focus:ring-2 focus:ring-community/40 mb-5 resize-none"
               />
-
               <Button
                 onClick={handleCreatePost}
                 disabled={!newTitle.trim() || !newContent.trim() || createPost.isPending}
-                className="w-full bg-teal hover:bg-teal/90 text-white font-[var(--font-display)] py-3 rounded-xl"
+                className="w-full h-14 bg-community hover:bg-community/90 text-white font-bold text-base rounded-xl"
+                style={{ fontFamily: "var(--font-display)" }}
               >
-                <Send className="w-4 h-4 mr-2" />
+                <Send className="w-5 h-5 mr-2" />
                 {createPost.isPending ? "Nagpo-post..." : "I-post sa Hub"}
               </Button>
             </motion.div>

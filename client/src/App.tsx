@@ -20,7 +20,7 @@ import { AuthProvider } from "./contexts/AuthContext";
 import RequireAuth from "./components/RequireAuth";
 import OnboardingGate from "./components/OnboardingGate";
 import {
-  MessageCircle, Map, Users, User, FileText, Award, MapPin, CalendarDays,
+  MessageCircle, Map, Users, User, FileText,
 } from "lucide-react";
 
 function Router() {
@@ -62,12 +62,11 @@ function BottomNav() {
     { path: "/profile", icon: User, label: "Profile" },
   ];
 
-  // Don't show bottom nav on certain pages
   const hideOn = ["/places", "/calendar", "/grants", "/planner", "/login", "/onboarding"];
   if (hideOn.includes(location)) return null;
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-border z-50 safe-area-bottom">
+    <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-border z-50 pb-[env(safe-area-inset-bottom)]">
       <div className="container max-w-2xl flex items-center justify-around h-16">
         {navItems.map(({ path, icon: Icon, label }) => {
           const isActive = location === path;
@@ -75,14 +74,22 @@ function BottomNav() {
             <button
               key={path}
               onClick={() => navigate(path)}
-              className={`flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-xl transition-colors ${
+              aria-label={label}
+              aria-current={isActive ? "page" : undefined}
+              className={`flex flex-col items-center justify-center gap-0.5 min-w-[56px] min-h-[48px] rounded-xl px-2 py-1 transition-colors ${
                 isActive
-                  ? "text-teal"
-                  : "text-muted-foreground hover:text-earth-brown"
+                  ? "text-primary"
+                  : "text-muted-foreground"
               }`}
             >
-              <Icon className={`w-5 h-5 ${isActive ? "text-teal" : ""}`} />
-              <span className={`text-[10px] font-[var(--font-mono)] ${isActive ? "font-semibold" : ""}`}>{label}</span>
+              <div className={`rounded-lg px-3 py-0.5 transition-colors ${
+                isActive ? "bg-forest-light" : ""
+              }`}>
+                <Icon className="w-5 h-5" />
+              </div>
+              <span className={`text-[11px] font-semibold ${isActive ? "text-primary" : "text-muted-foreground"}`}>
+                {label}
+              </span>
             </button>
           );
         })}

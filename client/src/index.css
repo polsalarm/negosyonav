@@ -41,55 +41,72 @@
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
 
-  /* NegosyoNav Custom Colors */
-  --color-mango: oklch(0.82 0.16 80);
-  --color-mango-light: oklch(0.92 0.08 80);
-  --color-teal: oklch(0.62 0.12 195);
-  --color-teal-light: oklch(0.88 0.06 195);
-  --color-jeepney-red: oklch(0.58 0.18 25);
-  --color-warm-cream: oklch(0.98 0.01 80);
-  --color-earth-brown: oklch(0.35 0.04 60);
-  --color-success: oklch(0.65 0.17 145);
+  /* NegosyoNav Design System — Bayanihan Modernism */
 
-  --font-display: 'Archivo Black', sans-serif;
-  --font-body: 'DM Sans', sans-serif;
+  /* Forest Green palette (primary) */
+  --color-forest: oklch(0.58 0.15 155);          /* #1D9E75 — primary brand */
+  --color-forest-dark: oklch(0.44 0.12 160);      /* #0F6E56 — deep teal accent */
+  --color-forest-light: oklch(0.93 0.05 155);     /* surface light green */
+
+  /* Warm gray neutrals */
+  --color-warm-cream: oklch(0.96 0.015 88);       /* #F1EFE8 — background */
+  --color-warm-white: oklch(1 0 0);               /* card surface */
+  --color-earth-brown: oklch(0.38 0.04 62);       /* primary text */
+
+  /* Brand accents */
+  --color-mango: oklch(0.62 0.14 68);             /* Amber — grants / urgency */
+  --color-mango-light: oklch(0.93 0.06 70);       /* amber surface */
+  --color-community: oklch(0.48 0.18 274);        /* #534AB7 — Hub purple */
+  --color-community-light: oklch(0.93 0.06 274);  /* purple surface */
+
+  /* Legacy compat aliases (used in existing JSX via text-teal, bg-teal-light etc.) */
+  --color-teal: oklch(0.58 0.15 155);
+  --color-teal-light: oklch(0.93 0.05 155);
+  --color-jeepney-red: oklch(0.52 0.19 25);
+  --color-success: oklch(0.62 0.17 145);
+
+  /* Typography — Plus Jakarta Sans throughout */
+  --font-display: 'Plus Jakarta Sans', sans-serif;
+  --font-body: 'Plus Jakarta Sans', sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
 }
 
 :root {
   --radius: 0.75rem;
-  --background: oklch(0.98 0.01 80);
-  --foreground: oklch(0.25 0.04 60);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.25 0.04 60);
+
+  /* Semantic tokens mapped to Design.md palette */
+  --background: oklch(0.96 0.015 88);             /* warm gray page background */
+  --foreground: oklch(0.38 0.04 62);              /* earth-brown text */
+  --card: oklch(1 0 0);                           /* white card surface */
+  --card-foreground: oklch(0.38 0.04 62);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.25 0.04 60);
-  --primary: oklch(0.62 0.12 195);
-  --primary-foreground: oklch(0.98 0.01 80);
-  --secondary: oklch(0.92 0.08 80);
-  --secondary-foreground: oklch(0.35 0.04 60);
-  --muted: oklch(0.95 0.01 80);
-  --muted-foreground: oklch(0.55 0.03 60);
-  --accent: oklch(0.82 0.16 80);
-  --accent-foreground: oklch(0.25 0.04 60);
-  --destructive: oklch(0.58 0.18 25);
-  --destructive-foreground: oklch(0.98 0.01 80);
-  --border: oklch(0.90 0.02 80);
-  --input: oklch(0.90 0.02 80);
-  --ring: oklch(0.62 0.12 195);
-  --chart-1: oklch(0.82 0.16 80);
-  --chart-2: oklch(0.62 0.12 195);
-  --chart-3: oklch(0.58 0.18 25);
-  --chart-4: oklch(0.65 0.17 145);
-  --chart-5: oklch(0.55 0.03 60);
-  --sidebar: oklch(0.98 0.01 80);
-  --sidebar-foreground: oklch(0.25 0.04 60);
-  --sidebar-primary: oklch(0.62 0.12 195);
-  --sidebar-primary-foreground: oklch(0.98 0.01 80);
-  --sidebar-accent: oklch(0.92 0.08 80);
-  --sidebar-accent-foreground: oklch(0.25 0.04 60);
-  --sidebar-border: oklch(0.90 0.02 80);
-  --sidebar-ring: oklch(0.62 0.12 195);
+  --popover-foreground: oklch(0.38 0.04 62);
+  --primary: oklch(0.58 0.15 155);                /* Forest Green */
+  --primary-foreground: oklch(1 0 0);             /* white on green */
+  --secondary: oklch(0.93 0.05 155);              /* light green surface */
+  --secondary-foreground: oklch(0.38 0.04 62);
+  --muted: oklch(0.93 0.01 88);                   /* slightly warm gray */
+  --muted-foreground: oklch(0.55 0.03 80);
+  --accent: oklch(0.62 0.14 68);                  /* Amber (grants) */
+  --accent-foreground: oklch(0.38 0.04 62);
+  --destructive: oklch(0.52 0.19 25);             /* jeepney-red */
+  --destructive-foreground: oklch(1 0 0);
+  --border: oklch(0.88 0.02 85);                  /* hairline border */
+  --input: oklch(0.91 0.01 85);
+  --ring: oklch(0.58 0.15 155);                   /* Forest Green focus ring */
+  --chart-1: oklch(0.62 0.14 68);
+  --chart-2: oklch(0.58 0.15 155);
+  --chart-3: oklch(0.52 0.19 25);
+  --chart-4: oklch(0.62 0.17 145);
+  --chart-5: oklch(0.48 0.18 274);
+  --sidebar: oklch(0.96 0.015 88);
+  --sidebar-foreground: oklch(0.38 0.04 62);
+  --sidebar-primary: oklch(0.58 0.15 155);
+  --sidebar-primary-foreground: oklch(1 0 0);
+  --sidebar-accent: oklch(0.93 0.06 70);
+  --sidebar-accent-foreground: oklch(0.38 0.04 62);
+  --sidebar-border: oklch(0.88 0.02 85);
+  --sidebar-ring: oklch(0.58 0.15 155);
 }
 
 @layer base {
@@ -99,10 +116,16 @@
   body {
     @apply bg-background text-foreground;
     font-family: var(--font-body);
+    font-size: 16px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
   }
   h1, h2, h3, h4, h5, h6 {
     font-family: var(--font-display);
+    font-weight: 700;
+    line-height: 1.25;
   }
+  /* Minimum touch-target for interactive elements */
   button:not(:disabled),
   [role="button"]:not([aria-disabled="true"]),
   [type="button"]:not(:disabled),
@@ -114,6 +137,10 @@
   input[type="radio"]:not(:disabled) {
     @apply cursor-pointer;
   }
+  /* Ensure inputs never trigger iOS zoom */
+  input, textarea, select {
+    font-size: 16px;
+  }
 }
 
 @layer components {
@@ -121,13 +148,27 @@
     width: 100%;
     margin-left: auto;
     margin-right: auto;
-    padding-left: 1rem;
-    padding-right: 1rem;
+    padding-left: 1.25rem;   /* 20px — Design.md edge margin */
+    padding-right: 1.25rem;
   }
 
   .flex {
     min-height: 0;
     min-width: 0;
+  }
+
+  /* Primary action button — 56dp, Forest Green */
+  .btn-primary-lakad {
+    @apply w-full h-14 rounded-xl bg-primary text-primary-foreground font-bold text-lg
+           flex items-center justify-center gap-2 shadow-sm
+           active:scale-[0.98] transition-all;
+    font-family: var(--font-display);
+  }
+
+  /* Card — Design.md spec: 12dp radius, 1px hairline, no shadow */
+  .negosyo-card {
+    @apply bg-card rounded-xl border border-border;
+    padding: 1rem;
   }
 
   @media (min-width: 640px) {
