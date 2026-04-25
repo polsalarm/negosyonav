@@ -1,6 +1,7 @@
 /*
  * Negosyante Hub — Community Board
- * Design System Refresh: Community Purple for Hub identity, larger touch targets.
+ * UI Refresh: better post cards, improved vote section, cleaner modal.
+ * All logic, state, and functions preserved.
  */
 import { useState, useMemo } from "react";
 import { useLocation } from "wouter";
@@ -33,7 +34,6 @@ const CATEGORIES = [
   { value: "experience", label: "Kwento", icon: Star },
 ] as const;
 
-/* Design.md: Community chips use purple (#534AB7) */
 const CATEGORY_STYLES: Record<string, { bg: string; text: string; border: string }> = {
   tip:        { bg: "bg-community-light", text: "text-community", border: "border-community/20" },
   warning:    { bg: "bg-destructive/10",  text: "text-destructive", border: "border-destructive/20" },
@@ -46,6 +46,13 @@ const CATEGORY_ICONS: Record<string, typeof Lightbulb> = {
   warning: AlertTriangle,
   question: HelpCircle,
   experience: Star,
+};
+
+const CATEGORY_ACCENT: Record<string, string> = {
+  tip: "bg-community",
+  warning: "bg-destructive",
+  question: "bg-primary",
+  experience: "bg-mango",
 };
 
 const SEED_POSTS = [
@@ -162,7 +169,7 @@ export default function Hub() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header — community purple identity */}
+      {/* Header */}
       <header className="sticky top-0 z-50 bg-white border-b border-border">
         <div className="container flex items-center justify-between h-14">
           <div className="flex items-center gap-3">
@@ -174,12 +181,11 @@ export default function Hub() {
               <ArrowLeft className="w-5 h-5 text-foreground" />
             </button>
             <div>
-              <h1 className="font-bold text-base text-foreground leading-tight"
-                style={{ fontFamily: "var(--font-display)" }}>
+              <h1 className="font-bold text-base text-foreground leading-tight font-[var(--font-display)]">
                 Negosyante Hub
               </h1>
               <p className="text-xs text-muted-foreground">
-                Manila City • Community Board
+                Manila City • {allPosts.length} post{allPosts.length !== 1 ? "s" : ""}
               </p>
             </div>
           </div>
@@ -188,8 +194,7 @@ export default function Hub() {
               if (!isAuthenticated) { window.location.href = getLoginUrl(); return; }
               setShowCreateForm(true);
             }}
-            className="bg-community hover:bg-community/90 text-white text-sm font-bold px-4 h-10 rounded-full"
-            style={{ fontFamily: "var(--font-display)" }}
+            className="bg-community hover:bg-community/90 text-white text-sm font-bold px-4 h-10 rounded-full font-[var(--font-display)]"
           >
             <MessageSquarePlus className="w-4 h-4 mr-1.5" />
             Mag-post
@@ -197,7 +202,7 @@ export default function Hub() {
         </div>
       </header>
 
-      {/* Category Filter — community purple for active state */}
+      {/* Category Filter */}
       <div className="sticky top-14 z-40 bg-background/95 backdrop-blur-sm border-b border-border/50">
         <div className="container py-3">
           <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-0.5">
@@ -225,25 +230,31 @@ export default function Hub() {
           {filteredPosts.map((post, i) => {
             const style = CATEGORY_STYLES[post.category] || CATEGORY_STYLES.tip;
             const CategoryIcon = CATEGORY_ICONS[post.category] || Lightbulb;
+            const accentBar = CATEGORY_ACCENT[post.category] || "bg-community";
             return (
               <motion.div
                 key={post.id}
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.3, delay: i * 0.05 }}
-                className="bg-white rounded-2xl border border-border overflow-hidden"
+                className="bg-white rounded-2xl border border-border overflow-hidden shadow-sm"
               >
+                {/* Category accent strip */}
+                <div className={`h-1 w-full ${accentBar}`} />
+
                 {/* Post header */}
-                <div className="px-4 pt-4 pb-3">
+                <div className="px-4 pt-3.5 pb-3">
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-2.5">
-                      <div className="w-9 h-9 rounded-full bg-community-light flex items-center justify-center shrink-0">
+                      <div className="w-10 h-10 rounded-full bg-community-light flex items-center justify-center shrink-0">
                         <span className="text-sm font-bold text-community">
                           {post.authorName.charAt(0)}
                         </span>
                       </div>
                       <div>
-                        <p className="text-sm font-bold text-foreground leading-tight">{post.authorName}</p>
+                        <p className="text-sm font-bold text-foreground leading-tight font-[var(--font-display)]">
+                          {post.authorName}
+                        </p>
                         <p className="text-xs text-muted-foreground">{formatDate(post.createdAt)}</p>
                       </div>
                     </div>
@@ -266,8 +277,7 @@ export default function Hub() {
                     </div>
                   )}
 
-                  <h3 className="font-bold text-base text-foreground leading-snug mb-2"
-                    style={{ fontFamily: "var(--font-display)" }}>
+                  <h3 className="font-bold text-base text-foreground leading-snug mb-2 font-[var(--font-display)]">
                     {post.title}
                   </h3>
                   <div className="text-sm text-muted-foreground leading-relaxed">
@@ -275,21 +285,21 @@ export default function Hub() {
                   </div>
                 </div>
 
-                {/* Vote actions — 48dp tap targets */}
-                <div className="px-4 py-2 border-t border-border/50 flex items-center gap-1">
+                {/* Vote section */}
+                <div className="px-4 py-2.5 border-t border-border/50 bg-muted/30 flex items-center gap-1">
                   <button
                     onClick={() => handleVote(String(post.id), "up")}
-                    className="flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors min-h-[44px] px-3 rounded-xl hover:bg-muted"
+                    className="flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors min-h-[44px] px-3 rounded-xl hover:bg-white"
                   >
                     <ThumbsUp className="w-4 h-4" />
-                    <span className="font-semibold" style={{ fontFamily: "var(--font-mono)" }}>{post.upvotes}</span>
+                    <span className="font-semibold font-[var(--font-mono)]">{post.upvotes}</span>
                   </button>
                   <button
                     onClick={() => handleVote(String(post.id), "down")}
-                    className="flex items-center gap-2 text-sm text-muted-foreground hover:text-destructive transition-colors min-h-[44px] px-3 rounded-xl hover:bg-muted"
+                    className="flex items-center gap-2 text-sm text-muted-foreground hover:text-destructive transition-colors min-h-[44px] px-3 rounded-xl hover:bg-white"
                   >
                     <ThumbsDown className="w-4 h-4" />
-                    <span className="font-semibold" style={{ fontFamily: "var(--font-mono)" }}>{post.downvotes}</span>
+                    <span className="font-semibold font-[var(--font-mono)]">{post.downvotes}</span>
                   </button>
                 </div>
               </motion.div>
@@ -298,14 +308,26 @@ export default function Hub() {
         </AnimatePresence>
 
         {filteredPosts.length === 0 && (
-          <div className="text-center py-16">
-            <Users className="w-12 h-12 text-muted-foreground/30 mx-auto mb-4" />
-            <p className="text-base font-semibold text-muted-foreground">
-              Wala pang posts sa category na ito.
+          <div className="text-center py-16 px-4">
+            <div className="w-16 h-16 rounded-full bg-community-light flex items-center justify-center mx-auto mb-4">
+              <Users className="w-8 h-8 text-community/50" />
+            </div>
+            <p className="text-base font-bold text-foreground font-[var(--font-display)]">
+              Wala pang posts dito.
             </p>
-            <p className="text-sm text-muted-foreground mt-1">
+            <p className="text-sm text-muted-foreground mt-1 mb-4">
               Maging una kang mag-share ng experience mo!
             </p>
+            <Button
+              onClick={() => {
+                if (!isAuthenticated) { window.location.href = getLoginUrl(); return; }
+                setShowCreateForm(true);
+              }}
+              className="bg-community hover:bg-community/90 text-white rounded-full font-[var(--font-display)]"
+            >
+              <MessageSquarePlus className="w-4 h-4 mr-2" />
+              Mag-post Ngayon
+            </Button>
           </div>
         )}
       </div>
@@ -328,7 +350,7 @@ export default function Hub() {
               className="bg-white w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl p-5 max-h-[85vh] overflow-y-auto"
             >
               <div className="flex items-center justify-between mb-5">
-                <h2 className="font-bold text-lg text-foreground" style={{ fontFamily: "var(--font-display)" }}>
+                <h2 className="font-bold text-lg text-foreground font-[var(--font-display)]">
                   Mag-share sa Hub
                 </h2>
                 <button
@@ -340,6 +362,7 @@ export default function Hub() {
               </div>
 
               {/* Category selector */}
+              <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Uri ng Post</p>
               <div className="flex flex-wrap gap-2 mb-5">
                 {(["tip", "warning", "question", "experience"] as const).map((cat) => {
                   const style = CATEGORY_STYLES[cat];
@@ -351,7 +374,7 @@ export default function Hub() {
                       className={`flex items-center gap-1.5 text-sm font-bold px-4 py-2.5 rounded-full border transition-all min-h-[44px] ${
                         newCategory === cat
                           ? `${style.bg} ${style.text} ${style.border}`
-                          : "bg-white text-muted-foreground border-border"
+                          : "bg-white text-muted-foreground border-border hover:border-border"
                       }`}
                     >
                       <Icon className="w-4 h-4" />
@@ -364,13 +387,16 @@ export default function Hub() {
                 })}
               </div>
 
+              <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Title</p>
               <input
                 type="text"
                 value={newTitle}
                 onChange={(e) => setNewTitle(e.target.value)}
                 placeholder="Ano ang title ng post mo?"
-                className="w-full px-4 h-14 rounded-xl bg-muted border border-border text-base focus:outline-none focus:ring-2 focus:ring-community/40 mb-3"
+                className="w-full px-4 h-14 rounded-xl bg-muted border border-border text-base focus:outline-none focus:ring-2 focus:ring-community/40 mb-4"
               />
+
+              <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Mensahe</p>
               <textarea
                 value={newContent}
                 onChange={(e) => setNewContent(e.target.value)}
@@ -381,8 +407,7 @@ export default function Hub() {
               <Button
                 onClick={handleCreatePost}
                 disabled={!newTitle.trim() || !newContent.trim() || createPost.isPending}
-                className="w-full h-14 bg-community hover:bg-community/90 text-white font-bold text-base rounded-xl"
-                style={{ fontFamily: "var(--font-display)" }}
+                className="w-full h-14 bg-community hover:bg-community/90 text-white font-bold text-base rounded-xl font-[var(--font-display)]"
               >
                 <Send className="w-5 h-5 mr-2" />
                 {createPost.isPending ? "Nagpo-post..." : "I-post sa Hub"}
