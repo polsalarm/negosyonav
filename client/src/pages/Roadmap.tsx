@@ -31,6 +31,7 @@ import {
   Send,
   SquareCheck,
   Square,
+  Star,
 } from "lucide-react";
 import { manilaData, type RegistrationStep } from "@/data/manilaData";
 import { toast } from "sonner";
@@ -345,6 +346,9 @@ export default function Roadmap() {
   const [feedbackType, setFeedbackType] = useState<"outdated_info" | "incorrect_data" | "suggestion" | "bug_report" | "general">("outdated_info");
   const [feedbackStep, setFeedbackStep] = useState<number | undefined>(undefined);
   const [feedbackMessage, setFeedbackMessage] = useState("");
+  const [rating, setRating] = useState(0);
+  const [hoverRating, setHoverRating] = useState(0);
+  const [ratingSubmitted, setRatingSubmitted] = useState(false);
 
   const feedbackMutation = trpc.feedback.submit.useMutation({
     onSuccess: () => {
@@ -690,6 +694,62 @@ export default function Roadmap() {
           </div>
         </div>
       </div>
+
+      {/* Roadmap Rating */}
+      {completedSteps.size >= 3 && (
+        <div className="container max-w-2xl mt-6">
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-gradient-to-r from-mango/10 to-teal/10 rounded-2xl border border-mango/20 p-5 shadow-sm text-center"
+          >
+            <h3 className="font-[var(--font-display)] text-sm text-earth-brown mb-1">
+              Kumusta ang Lakad Roadmap?
+            </h3>
+            <p className="text-xs text-muted-foreground mb-3">
+              {ratingSubmitted ? "Salamat sa rating mo! Malaking tulong ito sa amin." : "I-rate ang guide na ito para makatulong sa ibang negosyante."}
+            </p>
+            <div className="flex items-center justify-center gap-1">
+              {[1, 2, 3, 4, 5].map((star) => (
+                <button
+                  key={star}
+                  disabled={ratingSubmitted}
+                  onClick={() => {
+                    setRating(star);
+                    setRatingSubmitted(true);
+                    feedbackMutation.mutate({
+                      feedbackType: "general",
+                      lguId: "manila_city",
+                      message: `Roadmap rating: ${star}/5 stars`,
+                    });
+                    toast.success(`Salamat! ${star}/5 stars ⭐`);
+                  }}
+                  onMouseEnter={() => !ratingSubmitted && setHoverRating(star)}
+                  onMouseLeave={() => !ratingSubmitted && setHoverRating(0)}
+                  className="transition-transform hover:scale-110 disabled:cursor-default"
+                >
+                  <Star
+                    className={`w-8 h-8 transition-colors ${
+                      star <= (hoverRating || rating)
+                        ? "text-mango fill-mango"
+                        : "text-muted-foreground/30"
+                    }`}
+                  />
+                </button>
+              ))}
+            </div>
+            {ratingSubmitted && (
+              <motion.p
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="text-xs text-teal mt-2 font-medium"
+              >
+                {rating >= 4 ? "Masaya kami na nakatulong! Kaya mo 'to! 💪" : rating >= 2 ? "Salamat! Pag-iigihan pa namin." : "Pasensya na. Pag-iimprove-han namin!"}
+              </motion.p>
+            )}
+          </motion.div>
+        </div>
+      )}
 
       {/* Feedback / Report Section */}
       <div className="container max-w-2xl mt-6">

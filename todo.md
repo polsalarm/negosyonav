@@ -25,4 +25,4 @@
 - [x] Add interactive document checklist per step (19 documents across 5 steps)
 - [x] Add feedback mechanism (report outdated info, incorrect data, suggestions)
 - [x] Feedback modal with type selector, step selector, and message textarea
-- [ ] Add roadmap rating feature (star rating after completing steps)
+- [x] Add roadmap rating feature (star rating after completing 3+ steps)
