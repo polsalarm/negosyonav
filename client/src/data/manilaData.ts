@@ -18,6 +18,31 @@ export interface StepCost {
   breakdown: CostBreakdown[];
 }
 
+export interface Office {
+  id: string;
+  name: string;
+  address: string;
+  lat: number;
+  lng: number;
+  contact_phone?: string;
+  contact_email?: string;
+  hours: string;
+  notes?: string;
+  bestTime?: string;
+  queueTip?: string;
+}
+
+export interface BirRdo {
+  rdo_code: string;
+  name: string;
+  districts: string[];
+  address?: string;
+  lat: number;
+  lng: number;
+  bestTime?: string;
+  queueTip?: string;
+}
+
 export interface RegistrationStep {
   step_number: number;
   title: string;
@@ -34,24 +59,7 @@ export interface RegistrationStep {
   post_registration?: string[];
   renewal_deadline?: string;
   late_penalty?: string;
-}
-
-export interface BirRdo {
-  rdo_code: string;
-  name: string;
-  districts: string[];
-  address?: string;
-}
-
-export interface Office {
-  name: string;
-  address: string;
-  lat: number;
-  lng: number;
-  contact_phone?: string;
-  contact_email?: string;
-  hours: string;
-  notes?: string;
+  officeId?: string;
 }
 
 export interface GrantProgram {
@@ -84,6 +92,7 @@ export const manilaData: LguData = {
   province: "Metro Manila",
   offices: [
     {
+      id: "manila_city_hall_bureau_permits",
       name: "Manila City Hall — Bureau of Permits",
       address: "Room 110, Padre Burgos Ave, Ermita, Manila 1000",
       lat: 14.5891,
@@ -92,8 +101,22 @@ export const manilaData: LguData = {
       contact_email: "permits@manila.gov.ph",
       hours: "8:00 AM – 5:00 PM, Mon–Fri",
       notes: "E-BOSS Lounge available at Ground Floor for streamlined processing",
+      bestTime: "Tuesday–Thursday, 8:00–10:00 AM",
+      queueTip: "Go to E-BOSS Lounge (G/F) for faster processing. Avoid Mondays — longest queue.",
     },
     {
+      id: "manila_city_treasurer",
+      name: "Manila City Treasurer's Office (Cedula)",
+      address: "Manila City Hall, Padre Burgos Ave, Ermita, Manila 1000",
+      lat: 14.5891,
+      lng: 120.981,
+      hours: "8:00 AM – 5:00 PM, Mon–Fri",
+      notes: "Online Cedula application available at cedula.ctomanila.com",
+      bestTime: "Weekday mornings",
+      queueTip: "Apply online first at cedula.ctomanila.com; only visit if pickup is required.",
+    },
+    {
+      id: "negosyo_center_city_hall",
       name: "Negosyo Center Manila City — LGU",
       address: "Manila City Hall, Padre Burgos Ave, Ermita, Manila",
       lat: 14.5891,
@@ -101,8 +124,11 @@ export const manilaData: LguData = {
       contact_email: "ncr@dti.gov.ph",
       hours: "8:00 AM – 5:00 PM, Mon–Fri",
       notes: "Free business name registration assistance and MSME support",
+      bestTime: "Weekday mornings, 9:00–11:00 AM",
+      queueTip: "DTI registration can be done online at bnrs.dti.gov.ph — faster than in-person.",
     },
     {
+      id: "negosyo_center_lucky_chinatown",
       name: "Negosyo Center Manila — Lucky Chinatown",
       address: "Lucky Chinatown Mall, Reina Regente St, Binondo, Manila",
       lat: 14.5994,
@@ -110,15 +136,68 @@ export const manilaData: LguData = {
       contact_phone: "7794-2147",
       contact_email: "cityofmanila.mall@negosyocenter.gov.ph",
       hours: "8:00 AM – 5:00 PM, Mon–Sat",
+      bestTime: "Weekday afternoons, 2:00–4:00 PM",
+      queueTip: "Less crowded than City Hall. Good for DTI registration and BMBE inquiries.",
     },
   ],
   bir_rdos: [
-    { rdo_code: "029", name: "RDO 029 — Tondo / San Nicolas", districts: ["Tondo", "San Nicolas"] },
-    { rdo_code: "030", name: "RDO 030 — Binondo", districts: ["Binondo"] },
-    { rdo_code: "031", name: "RDO 031 — Sta. Cruz", districts: ["Sta. Cruz", "Santa Cruz"] },
-    { rdo_code: "032", name: "RDO 032 — Quiapo / Sampaloc / San Miguel / Sta. Mesa", districts: ["Quiapo", "Sampaloc", "San Miguel", "Sta. Mesa", "Santa Mesa"] },
-    { rdo_code: "033", name: "RDO 033 — Intramuros / Ermita / Malate / Port Area", districts: ["Intramuros", "Ermita", "Malate", "Port Area"], address: "181 Natividad Lopez St, Ermita, Manila 1000" },
-    { rdo_code: "034", name: "RDO 034 — Paco / Pandacan / Sta. Ana / San Andres", districts: ["Paco", "Pandacan", "Sta. Ana", "Santa Ana", "San Andres"] },
+    {
+      rdo_code: "029",
+      name: "RDO 029 — Tondo / San Nicolas",
+      districts: ["Tondo", "San Nicolas"],
+      lat: 14.612,
+      lng: 120.968,
+      bestTime: "Early morning, 8:00–9:00 AM",
+      queueTip: "Bring all requirements in a folder. BIR is strict on completeness.",
+    },
+    {
+      rdo_code: "030",
+      name: "RDO 030 — Binondo",
+      districts: ["Binondo"],
+      lat: 14.5994,
+      lng: 120.9741,
+      bestTime: "Tuesday–Thursday mornings",
+      queueTip: "Use ORUS (orus.bir.gov.ph) for online registration to skip the queue.",
+    },
+    {
+      rdo_code: "031",
+      name: "RDO 031 — Sta. Cruz",
+      districts: ["Sta. Cruz", "Santa Cruz"],
+      lat: 14.603,
+      lng: 120.983,
+      bestTime: "Early morning",
+      queueTip: "Prepare exact amounts for payments. Some RDOs don't accept large bills.",
+    },
+    {
+      rdo_code: "032",
+      name: "RDO 032 — Quiapo / Sampaloc / San Miguel / Sta. Mesa",
+      districts: ["Quiapo", "Sampaloc", "San Miguel", "Sta. Mesa", "Santa Mesa"],
+      // TODO: refine — placeholder near Sampaloc area
+      lat: 14.606,
+      lng: 120.993,
+      bestTime: "Tuesday–Thursday, 8:00–10:00 AM",
+      queueTip: "Largest RDO by population — go early. ORUS strongly recommended.",
+    },
+    {
+      rdo_code: "033",
+      name: "RDO 033 — Intramuros / Ermita / Malate / Port Area",
+      districts: ["Intramuros", "Ermita", "Malate", "Port Area"],
+      address: "181 Natividad Lopez St, Ermita, Manila 1000",
+      lat: 14.589,
+      lng: 120.975,
+      bestTime: "Wednesday mornings",
+      queueTip: "Covers Intramuros, Ermita, Malate, and Port Area. Bring 2 copies of each document.",
+    },
+    {
+      rdo_code: "034",
+      name: "RDO 034 — Paco / Pandacan / Sta. Ana / San Andres",
+      districts: ["Paco", "Pandacan", "Sta. Ana", "Santa Ana", "San Andres"],
+      // TODO: refine — placeholder near Paco area
+      lat: 14.581,
+      lng: 120.992,
+      bestTime: "Early morning",
+      queueTip: "Mixed residential + commercial RDO. Bring proof of business address.",
+    },
   ],
   registration_steps: [
     {
@@ -140,6 +219,7 @@ export const manilaData: LguData = {
       processing_time_days: 1,
       validity_years: 5,
       output_document: "DTI Certificate of Business Name Registration",
+      officeId: "negosyo_center_city_hall",
       tips: [
         "Check name availability first at bnrs.dti.gov.ph before visiting the Negosyo Center.",
         "The business name must be unique — DTI may reject generic or similar names.",
@@ -190,6 +270,7 @@ export const manilaData: LguData = {
       processing_time_days: 1,
       validity_years: 1,
       output_document: "Community Tax Certificate",
+      officeId: "manila_city_treasurer",
       tips: [
         "Manila offers online Cedula application — save time at cedula.ctomanila.com.",
         "The Cedula is valid for the calendar year and must be renewed annually.",
@@ -223,6 +304,7 @@ export const manilaData: LguData = {
       processing_time_days: 3,
       validity_years: 1,
       output_document: "Mayor's Permit / Business Permit",
+      officeId: "manila_city_hall_bureau_permits",
       renewal_deadline: "January 20",
       late_penalty: "25% surcharge + 2% monthly interest",
       tips: [
@@ -317,6 +399,95 @@ export const manilaData: LguData = {
     },
   ],
 };
+
+/* ────────────────────────────────────────────────────────────────────────
+ * Manila barangay → district lookup
+ * Manila has 897 barangays grouped into 16 districts. The numbering
+ * roughly follows district boundaries. Ranges below are SEED VALUES;
+ * verify against the Manila City Government barangay registry before
+ * shipping. Free-text district match is the fallback for any miss.
+ * ──────────────────────────────────────────────────────────────────────── */
+
+type BarangayRange = { from: number; to: number; district: string };
+
+// TODO(track-c): refine ranges against authoritative source
+// (https://manila.gov.ph or City Council Resolution defining barangays).
+// These values are best-effort and intentionally err toward the
+// free-text fallback when uncertain.
+const BARANGAY_RANGES: BarangayRange[] = [
+  { from: 1, to: 267, district: "Tondo" },
+  { from: 268, to: 286, district: "San Nicolas" },
+  { from: 287, to: 295, district: "Binondo" },
+  { from: 296, to: 305, district: "Sta. Cruz" },
+  { from: 306, to: 315, district: "Quiapo" },
+  { from: 316, to: 394, district: "Sta. Cruz" },
+  { from: 395, to: 586, district: "Sampaloc" },
+  { from: 587, to: 635, district: "Sta. Mesa" },
+  { from: 636, to: 648, district: "San Miguel" },
+  { from: 649, to: 653, district: "Port Area" },
+  { from: 654, to: 658, district: "Intramuros" },
+  { from: 659, to: 670, district: "Ermita" },
+  { from: 671, to: 760, district: "Malate" },
+  { from: 761, to: 764, district: "San Andres" },
+  { from: 765, to: 818, district: "Sta. Ana" },
+  { from: 819, to: 831, district: "Paco" },
+  { from: 832, to: 846, district: "Pandacan" },
+  // 847–897 fall back to free-text matching.
+];
+
+const KNOWN_DISTRICTS = [
+  "Tondo",
+  "San Nicolas",
+  "Binondo",
+  "Sta. Cruz",
+  "Santa Cruz",
+  "Quiapo",
+  "Sampaloc",
+  "San Miguel",
+  "Sta. Mesa",
+  "Santa Mesa",
+  "Intramuros",
+  "Ermita",
+  "Malate",
+  "Port Area",
+  "Paco",
+  "Pandacan",
+  "Sta. Ana",
+  "Santa Ana",
+  "San Andres",
+];
+
+function parseBarangayNumber(raw: string): number | null {
+  // Matches "Brgy 123", "Barangay 123", "BRGY. 123", "123" — anywhere in the string.
+  const m = raw.match(/(?:^|\s|brgy\.?|barangay)\s*(\d{1,3})\b/i);
+  if (!m) return null;
+  const n = Number(m[1]);
+  return Number.isFinite(n) && n > 0 && n <= 897 ? n : null;
+}
+
+/**
+ * Map a barangay reference (e.g. "Brgy 123, Tondo") to its Manila district
+ * name as used in `manilaData.bir_rdos[].districts`. Returns null when the
+ * input cannot be resolved — caller should render the RDO picker fallback.
+ */
+export function findDistrict(barangay: string): string | null {
+  if (!barangay) return null;
+  const num = parseBarangayNumber(barangay);
+  if (num !== null) {
+    const hit = BARANGAY_RANGES.find((r) => num >= r.from && num <= r.to);
+    if (hit) return hit.district;
+  }
+  const lower = barangay.toLowerCase();
+  const free = KNOWN_DISTRICTS.find((d) => lower.includes(d.toLowerCase()));
+  if (free) {
+    // Normalize "Santa Cruz" → "Sta. Cruz" etc. for downstream matching.
+    if (free === "Santa Cruz") return "Sta. Cruz";
+    if (free === "Santa Mesa") return "Sta. Mesa";
+    if (free === "Santa Ana") return "Sta. Ana";
+    return free;
+  }
+  return null;
+}
 
 // Chat messages for the demo flow
 export const demoMessages = [
