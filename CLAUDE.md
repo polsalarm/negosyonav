@@ -31,7 +31,7 @@ Active runtime env (`server/_core/env.ts`):
 
 Server also reads `serviceAccount.json` from CWD for Firebase Admin (`server/_core/firebaseAdmin.ts`). Without it, `adminDb`/`adminAuth` stay `null` and any DB/auth-touching procedure throws "Firestore not initialized".
 
-Client env (Vite, `client/src/lib/firebase.ts`): `VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_AUTH_DOMAIN`, `VITE_FIREBASE_PROJECT_ID`, `VITE_FIREBASE_STORAGE_BUCKET`, `VITE_FIREBASE_MESSAGING_SENDER_ID`, `VITE_FIREBASE_APP_ID`, `VITE_FIREBASE_MEASUREMENT_ID`.
+Client env (Vite, `client/src/lib/firebase.ts`): `VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_AUTH_DOMAIN`, `VITE_FIREBASE_PROJECT_ID`, `VITE_FIREBASE_STORAGE_BUCKET`, `VITE_FIREBASE_MESSAGING_SENDER_ID`, `VITE_FIREBASE_APP_ID`, `VITE_FIREBASE_MEASUREMENT_ID`. Maps env: `VITE_GOOGLE_MAPS_API_KEY` (used by `client/src/components/Map.tsx`). Restrict the key in Google Cloud Console — HTTP referrer allowlist + Maps JS + Directions API only — before any non-localhost deploy.
 
 The fields in `env.ts` named `forgeApiUrl`/`forgeApiKey`/`cookieSecret`/`oAuthServerUrl`/`appId`/`ownerOpenId` are **legacy stubs** kept so leftover Forge/Manus files compile. They are empty strings — do not rely on them.
 

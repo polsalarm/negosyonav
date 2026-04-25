@@ -209,16 +209,24 @@ User report: "not asking me to register" + "after signing up, direct to profile 
 - M.4 Replaced banner-in-Profile with dedicated `/onboarding` full-screen wizard — ✅ done
 - M.5 tRPC consumers mount inside `RequireAuth`; only `syncUser` fires post-auth — ✅ done
 
-### Track N — Map embedded inside roadmap steps — **HIGH**
+### Track N — Map embedded inside roadmap steps — ✅ done 2026-04-25
 **Owner files:** `client/src/pages/Roadmap.tsx`, `client/src/components/StepOfficeCard.tsx` (new), `client/src/data/lgu/manila.ts` (post-Track-0; add `step.offices: OfficeRef[]`), `client/src/components/Map.tsx` (reused, no edits needed).
 
 Currently office data lives only in `pages/Places.tsx`. User wants the relevant office card + mini-map *inside* each roadmap step so the user doesn't have to leave the flow.
 
-- N.1 Lift the `manilaOffices` array out of `Places.tsx` into `client/src/data/lgu/manila.ts` (Track 0 already moves data there). Each step in `lguData.steps` references one or more `officeId`s.
-- N.2 New `StepOfficeCard` component renders office name, hours, queue tip, "Open in Maps" link, and a small `<Map />` preview centered on the office's `lat/lng`. Reuse the existing `components/Map.tsx`.
-- N.3 In `Roadmap.tsx`'s expanded step view, render `StepOfficeCard` for each office tied to that step. Steps that are online-only (DTI online path) render a "Pwedeng online" pill instead of a map.
-- N.4 Make sure mini-map height is capped (~180px) and lazy-loaded so 5 maps don't render simultaneously — only the expanded step's map mounts.
-- N.5 `/places` page stays as the directory; remove the duplicated office array from there and import from the LGU data file.
+- N.1 Lift the `manilaOffices` array out of `Places.tsx` into `client/src/data/lgu/manila.ts` (Track 0 already moves data there). Each step in `lguData.steps` references one or more `officeId`s. — ✅ done 2026-04-25
+- N.2 New `StepOfficeCard` component renders office name, hours, queue tip, "Open in Maps" link, and a small `<Map />` preview centered on the office's `lat/lng`. Reuse the existing `components/Map.tsx`. — ✅ done 2026-04-25
+- N.3 In `Roadmap.tsx`'s expanded step view, render `StepOfficeCard` for each office tied to that step. Steps that are online-only (DTI online path) render a "Pwedeng online" pill instead of a map. — ✅ done 2026-04-25
+- N.4 Make sure mini-map height is capped (~180px) and lazy-loaded so 5 maps don't render simultaneously — only the expanded step's map mounts. — ✅ done 2026-04-25
+- N.5 `/places` page stays as the directory; remove the duplicated office array from there and import from the LGU data file. — ✅ done 2026-04-25
+
+> Deviations from spec:
+> - Track 0 deferred — landed against flat `client/src/data/manilaData.ts` instead of `lgu/manila.ts`. Future Track 0 commit handles the rename.
+> - `components/Map.tsx` was rewritten (not "reused") because the prior implementation pointed at the dead Forge proxy.
+> - Added `RdoPicker` (not in original spec) for the `bizBarangay` missing case; choice persists to `localStorage`.
+> - Added `findDistrict()` + `BARANGAY_RANGES` table to `manilaData.ts`. Track C should refactor into a per-LGU adapter when adding Taguig/Cavite/Sampaloc.
+> - `bestTime` / `queueTip` lifted into the `Office` / `BirRdo` interfaces (single source of truth for `/places` and the in-step office card).
+> - Out-of-band: API key restricted in Google Cloud Console (HTTP referrer + API allowlist).
 
 ### Track O — Per-step report/feedback that posts to Hub — **HIGH**
 **Owner files:** `client/src/components/StepFeedbackButton.tsx` (new), `client/src/pages/Roadmap.tsx`, `server/routers/feedback.ts` (post Track 0), `server/db.ts` (feedback helpers), optional cross-call to `community.create`.
@@ -272,7 +280,7 @@ Two-dev pairing example, reordered so HIGH directives ship first:
 |---|---|---|
 | 0 | Track 0 (refactor) | Track I (voice input) or Track K (test rewrite) — both isolated, safe to start before 0 lands |
 | 1 (HIGH) | Track M (auth gate + signup→profile) | Track A (real PDF) |
-| 2 (HIGH) | Track L (chatbot E2E) | Track N (map in steps) |
+| 2 (HIGH) | Track L (chatbot E2E) | Track N (map in steps) — ✅ done |
 | 3 (HIGH) | Track O (per-step feedback → hub) | Track B (progress persistence) |
 | 4 | Track C (multi-LGU) | Track D (post-reg roadmaps) |
 | 5 | Track F (push notifs) | Track G (geolocation) + Track H (calendar fix) |
