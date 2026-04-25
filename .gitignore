@@ -117,3 +117,6 @@ serviceAccount.json
 
 # Local LLM eval fixtures (prompt-eval agent)
 server/__evals__/
+
+# Form templates (local-only, not part of source)
+template/
