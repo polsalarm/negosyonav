@@ -315,7 +315,7 @@ export default function Forms() {
   const hasProfile = p && p.firstName;
 
   return (
-    <div className="min-h-screen bg-warm-cream pb-8">
+    <div className="min-h-screen bg-warm-cream pb-24 pb-[calc(6rem+env(safe-area-inset-bottom))]">
       {/* Header */}
       <header className="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-border">
         <div className="container flex items-center gap-3 h-14">
@@ -421,15 +421,6 @@ export default function Forms() {
           );
         })}
 
-        {/* Navigation */}
-        <div className="flex flex-wrap justify-center gap-3 pt-4 pb-8">
-          <Button onClick={() => navigate("/profile")} variant="outline" className="rounded-xl border-teal/30 text-teal hover:bg-teal-light">
-            <User className="w-4 h-4 mr-2" />Edit Profile
-          </Button>
-          <Button onClick={() => navigate("/roadmap")} variant="outline" className="rounded-xl border-mango/30 text-earth-brown hover:bg-mango-light">
-            <ArrowLeft className="w-4 h-4 mr-2" />Back to Roadmap
-          </Button>
-        </div>
       </div>
 
       {/* Floating Form Help Button */}
