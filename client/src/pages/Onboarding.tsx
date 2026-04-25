@@ -21,7 +21,7 @@ type CoreFields = {
   lastName: string;
   mobileNumber: string;
   businessName: string;
-  businessType: "sole_proprietorship" | "partnership" | "corporation";
+  businessType: "sole_proprietorship" | "partnership";
   bizBarangay: string;
 };
 
@@ -485,7 +485,6 @@ export default function Onboarding() {
                     [
                       { v: "sole_proprietorship", label: "Sole Proprietorship", desc: "Ikaw lang ang may-ari" },
                       { v: "partnership", label: "Partnership", desc: "Dalawa o higit pang partners" },
-                      { v: "corporation", label: "Corporation", desc: "Registered sa SEC" },
                     ] as const
                   ).map((opt) => {
                     const active = data.businessType === opt.v;
@@ -504,7 +503,7 @@ export default function Onboarding() {
                       >
                         <div className="flex items-center gap-3">
                           <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${active ? "bg-teal text-white" : "bg-muted text-earth-brown"}`}>
-                            {opt.v === "partnership" ? <Users className="w-5 h-5" /> : opt.v === "corporation" ? <Building2 className="w-5 h-5" /> : <User className="w-5 h-5" />}
+                            {opt.v === "partnership" ? <Users className="w-5 h-5" /> : <User className="w-5 h-5" />}
                           </div>
                           <div className="flex-1">
                             <div className="font-[var(--font-display)] text-sm text-earth-brown">{opt.label}</div>
@@ -698,14 +697,14 @@ function PolishStep({
           </Field>
           <Field label="Civil status">
             <select
-              className={`${inputClass} border border-border px-3`}
+              className={`${inputClass} w-full min-w-0 max-w-full border border-border px-3 truncate`}
               value={data.civilStatus}
               onChange={(e) => update("civilStatus", e.target.value as PolishFields["civilStatus"])}
             >
               <option value="single">Single</option>
               <option value="married">Married</option>
               <option value="widowed">Widowed</option>
-              <option value="legally_separated">Legally separated</option>
+              <option value="legally_separated">Separated</option>
             </select>
           </Field>
         </Row>
@@ -757,40 +756,36 @@ function PolishStep({
             <Input className={inputClass} inputMode="numeric" value={data.bizZipCode} onChange={(e) => update("bizZipCode", e.target.value)} />
           </Field>
         </Row>
-        <Row>
-          <Field label="Territorial scope">
-            <select
-              className={`${inputClass} border border-border px-3`}
-              value={data.territorialScope}
-              onChange={(e) => update("territorialScope", e.target.value as PolishFields["territorialScope"])}
-            >
-              <option value="barangay">Barangay (₱200)</option>
-              <option value="city">City (₱500)</option>
-              <option value="regional">Regional (₱1,000)</option>
-              <option value="national">National (₱2,000)</option>
-            </select>
-          </Field>
-          <Field label="Capital (₱)">
-            <Input className={inputClass} inputMode="numeric" value={data.capitalization} onChange={(e) => update("capitalization", e.target.value)} placeholder="50,000" />
-          </Field>
-        </Row>
-        <Row>
-          <Field label="Annual sales">
-            <select
-              className={`${inputClass} border border-border px-3`}
-              value={data.expectedAnnualSales}
-              onChange={(e) => update("expectedAnnualSales", e.target.value as PolishFields["expectedAnnualSales"])}
-            >
-              <option value="">—</option>
-              <option value="micro">Below ₱3M (Micro)</option>
-              <option value="small">₱3M – ₱15M (Small)</option>
-              <option value="medium">₱15M – ₱100M (Medium)</option>
-            </select>
-          </Field>
-          <Field label="Employees">
-            <Input type="number" inputMode="numeric" min={0} className={inputClass} value={data.numberOfEmployees} onChange={(e) => update("numberOfEmployees", e.target.value)} />
-          </Field>
-        </Row>
+        <Field label="Territorial scope">
+          <select
+            className={`${inputClass} w-full min-w-0 max-w-full border border-border px-3 truncate`}
+            value={data.territorialScope}
+            onChange={(e) => update("territorialScope", e.target.value as PolishFields["territorialScope"])}
+          >
+            <option value="barangay">Barangay (₱200)</option>
+            <option value="city">City (₱500)</option>
+            <option value="regional">Regional (₱1,000)</option>
+            <option value="national">National (₱2,000)</option>
+          </select>
+        </Field>
+        <Field label="Capital (₱)">
+          <Input className={inputClass} inputMode="numeric" value={data.capitalization} onChange={(e) => update("capitalization", e.target.value)} placeholder="50,000" />
+        </Field>
+        <Field label="Annual sales">
+          <select
+            className={`${inputClass} w-full min-w-0 max-w-full border border-border px-3 truncate`}
+            value={data.expectedAnnualSales}
+            onChange={(e) => update("expectedAnnualSales", e.target.value as PolishFields["expectedAnnualSales"])}
+          >
+            <option value="">—</option>
+            <option value="micro">Below ₱3M (Micro)</option>
+            <option value="small">₱3M – ₱15M (Small)</option>
+            <option value="medium">₱15M – ₱100M (Medium)</option>
+          </select>
+        </Field>
+        <Field label="Employees">
+          <Input type="number" inputMode="numeric" min={0} className={inputClass} value={data.numberOfEmployees} onChange={(e) => update("numberOfEmployees", e.target.value)} />
+        </Field>
       </Section>
 
       <Section title="Tax preference" reduce={reduce}>
@@ -854,7 +849,7 @@ function Row({ children }: { children: React.ReactNode }) {
 
 function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
   return (
-    <div>
+    <div className="min-w-0">
       <label className="text-xs font-medium text-earth-brown block mb-1 font-[var(--font-body)]">{label}</label>
       {children}
       {hint && <p className="text-[10px] text-muted-foreground mt-0.5">{hint}</p>}

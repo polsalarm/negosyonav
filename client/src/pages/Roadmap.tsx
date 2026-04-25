@@ -10,7 +10,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowLeft, MapPin, Clock, FileText, ChevronDown, ChevronUp, ExternalLink,
   CheckCircle2, Coins, Award, Lightbulb, Building2, ShieldCheck,
-  BadgeCheck, Users, Flag, X, Send, SquareCheck, Square, Star,
+  BadgeCheck, Flag, X, Send, SquareCheck, Square, Star,
   CalendarDays, Navigation,
 } from "lucide-react";
 import { manilaData, type RegistrationStep } from "@/data/manilaData";
@@ -652,7 +652,7 @@ export default function Roadmap() {
       </div>
 
       {/* Quick Access Cards */}
-      <div className="container max-w-2xl mt-6">
+      <div className="container max-w-2xl mt-6 pb-24">
         <h2 className="font-[var(--font-display)] text-base font-bold text-earth-brown mb-3 flex items-center gap-2">
           <Lightbulb className="w-5 h-5 text-mango" />
           Higit pang Tools
@@ -689,16 +689,6 @@ export default function Roadmap() {
             </div>
           </button>
         </div>
-      </div>
-
-      {/* Navigation */}
-      <div className="container max-w-2xl mt-8 flex flex-wrap justify-center gap-3 pb-24">
-        <Button onClick={() => navigate("/")} variant="outline" className="rounded-xl border-teal/30 text-teal hover:bg-teal-light min-h-[44px]">
-          <ArrowLeft className="w-4 h-4 mr-2" />Bumalik sa Chat
-        </Button>
-        <Button onClick={() => navigate("/hub")} variant="outline" className="rounded-xl border-mango/30 text-earth-brown hover:bg-mango-light min-h-[44px]">
-          <Users className="w-4 h-4 mr-2" />Negosyante Hub
-        </Button>
       </div>
 
       {/* Feedback Modal */}
