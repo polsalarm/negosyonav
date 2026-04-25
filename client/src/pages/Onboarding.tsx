@@ -91,11 +91,13 @@ export default function Onboarding() {
 
   const meQuery = trpc.auth.me.useQuery();
   const profileQuery = trpc.profile.get.useQuery();
+  const chatSessionQuery = trpc.ai.getSession.useQuery();
   const utils = trpc.useUtils();
 
   const saveProfile = trpc.profile.save.useMutation();
   const setStep = trpc.auth.setOnboardingStep.useMutation();
   const completeOnboarding = trpc.auth.completeOnboarding.useMutation();
+  const extractFromChat = trpc.ai.extractProfile.useMutation();
 
   const [data, setData] = useState<WizardData>(DEFAULTS);
   const [step, setStepState] = useState<number>(0);
@@ -104,6 +106,7 @@ export default function Onboarding() {
   const [error, setError] = useState<string | null>(null);
   const [savingFlash, setSavingFlash] = useState(false);
   const initial = useRef(true);
+  const extractFiredRef = useRef(false);
 
   // Hydrate from server once both queries land.
   useEffect(() => {
@@ -172,6 +175,59 @@ export default function Onboarding() {
     setData(prev => ({ ...prev, [k]: v }));
     if (error) setError(null);
   };
+
+  // After hydration, if the user has chat history but no business profile yet,
+  // extract draft fields from chat once. Only fills fields that are still empty
+  // — never overwrites existing profile data.
+  useEffect(() => {
+    if (!hydrated || extractFiredRef.current) return;
+    const session = chatSessionQuery.data;
+    if (!session || session.messages.length < 2) return;
+    const p = profileQuery.data;
+    const profileHasBiz = !!(p?.businessName || p?.bizBarangay || p?.businessType);
+    if (profileHasBiz) {
+      extractFiredRef.current = true;
+      return;
+    }
+    extractFiredRef.current = true;
+    extractFromChat.mutate(undefined, {
+      onSuccess: (extracted) => {
+        if (!extracted || typeof extracted !== "object") return;
+        const e = extracted as Record<string, unknown>;
+        let filled = 0;
+        setData(prev => {
+          const next = { ...prev };
+          const setIfEmpty = <K extends keyof WizardData>(k: K, val: unknown) => {
+            if (val == null || val === "") return;
+            if (next[k]) return;
+            next[k] = String(val) as WizardData[K];
+            filled++;
+          };
+          setIfEmpty("firstName", e.firstName);
+          setIfEmpty("lastName", e.lastName);
+          setIfEmpty("middleName", e.middleName);
+          setIfEmpty("businessName", e.businessName);
+          setIfEmpty("businessActivity", e.businessActivity);
+          setIfEmpty("bizBarangay", e.bizBarangay);
+          setIfEmpty("bizCity", e.bizCity);
+          setIfEmpty("mobileNumber", e.mobileNumber);
+          setIfEmpty("emailAddress", e.emailAddress);
+          if (e.capitalization != null && !next.capitalization) {
+            next.capitalization = String(e.capitalization);
+            filled++;
+          }
+          if (e.numberOfEmployees != null && !next.numberOfEmployees) {
+            next.numberOfEmployees = String(e.numberOfEmployees);
+            filled++;
+          }
+          return next;
+        });
+        if (filled > 0) {
+          toast.success(`Pre-filled ${filled} field${filled > 1 ? "s" : ""} from your chat. Review and continue.`);
+        }
+      },
+    });
+  }, [hydrated, chatSessionQuery.data, profileQuery.data, extractFromChat]);
 
   const advanceTo = async (next: number, payload: Record<string, unknown>) => {
     setSavingFlash(false);

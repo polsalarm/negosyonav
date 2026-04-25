@@ -1,12 +1,6 @@
-/*
- * NegosyoNav Home Page
- * Design: Jeepney Modernism — warm mango/teal palette, vertical card-stack,
- * conversational chat UI at the bottom, Filipino micro-entrepreneur focused.
- * Now with real AI-powered Taglish chat via LLM backend.
- */
 import { useState, useRef, useEffect } from "react";
 import { useLocation } from "wouter";
-import { useAuth } from "@/_core/hooks/useAuth";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -24,10 +18,7 @@ import { sampleUserMessages } from "@/data/manilaData";
 import { trpc } from "@/lib/trpc";
 import { Streamdown } from "streamdown";
 
-interface ChatMessage {
-  role: "user" | "assistant";
-  content: string;
-}
+type ChatMessage = { role: "user" | "assistant"; content: string };
 
 const WELCOME_MESSAGE: ChatMessage = {
   role: "assistant",
@@ -35,63 +26,61 @@ const WELCOME_MESSAGE: ChatMessage = {
     "Kumusta! Ako si NegosyoNav, ang iyong gabay sa pag-register ng negosyo. 🏪\n\nSabihin mo lang sa akin:\n• Anong klaseng negosyo ang gusto mong simulan?\n• Saan mo ito itatayo? (city/municipality)\n\nHalimbawa: \"Gusto ko mag-open ng sari-sari store sa Tondo, Manila\"",
 };
 
+const FOLLOWUP_SUGGESTIONS = [
+  "Magkano gagastusin?",
+  "Anong forms kailangan?",
+  "May grant ba ako?",
+];
+
 export default function Home() {
-  const { user, isAuthenticated } = useAuth();
   const [, navigate] = useLocation();
-  const [messages, setMessages] = useState<ChatMessage[]>([WELCOME_MESSAGE]);
   const [inputValue, setInputValue] = useState("");
-  const [isTyping, setIsTyping] = useState(false);
-  const [roadmapReady, setRoadmapReady] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const chatMutation = trpc.ai.chat.useMutation();
+  const utils = trpc.useUtils();
+  const sessionQuery = trpc.ai.getSession.useQuery(undefined, {
+    staleTime: 30_000,
+  });
+  const chatMutation = trpc.ai.chat.useMutation({
+    onSuccess: (data, variables) => {
+      utils.ai.getSession.setData(undefined, (prev) => {
+        const prior = prev?.messages ?? [];
+        return {
+          messages: [
+            ...prior,
+            { role: "user", content: variables.content },
+            { role: "assistant", content: data.content },
+          ],
+          roadmapReady: data.roadmapReady,
+        };
+      });
+    },
+    onError: (err) => {
+      if (err.message === "LLM_UNAVAILABLE") {
+        toast.error("Bumalik mamaya — busy ang AI 🙏");
+      } else {
+        toast.error("Pasensya na, may technical issue. Subukan mo ulit.");
+      }
+    },
+  });
+
+  const stored = sessionQuery.data?.messages ?? [];
+  const messages: ChatMessage[] = stored.length === 0 ? [WELCOME_MESSAGE] : stored;
+  const isTyping = chatMutation.isPending;
+  const roadmapReady = sessionQuery.data?.roadmapReady ?? false;
+  const hasUserMessages = stored.length > 0;
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, isTyping]);
+  }, [messages.length, isTyping]);
 
-  const handleSend = async (text?: string) => {
-    const msg = text || inputValue.trim();
+  const handleSend = (text?: string) => {
+    const msg = (text ?? inputValue).trim();
     if (!msg || isTyping) return;
-
-    const newUserMessage: ChatMessage = { role: "user", content: msg };
-    const updatedMessages = [...messages, newUserMessage];
-    setMessages(updatedMessages);
     setInputValue("");
-    setIsTyping(true);
-
-    try {
-      // Send only user/assistant messages (not system) to the backend
-      const chatHistory = updatedMessages.map((m) => ({
-        role: m.role,
-        content: m.content,
-      }));
-
-      const response = await chatMutation.mutateAsync({ messages: chatHistory });
-
-      const allMessages = [
-        ...updatedMessages,
-        { role: "assistant" as const, content: response.content },
-      ];
-      setMessages(allMessages);
-      // Persist chat history for profile extraction
-      sessionStorage.setItem('negosyonav_chat_history', JSON.stringify(
-        allMessages.map(m => ({ role: m.role, content: m.content }))
-      ));
-      setRoadmapReady(true);
-    } catch (error) {
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: "assistant",
-          content:
-            "Pasensya na, may technical issue ngayon. Subukan mo ulit mamaya! 🙏",
-        },
-      ]);
-    } finally {
-      setIsTyping(false);
-    }
+    chatMutation.mutate({ content: msg });
+    inputRef.current?.focus();
   };
 
   return (
@@ -110,12 +99,13 @@ export default function Home() {
           <div className="flex items-center gap-2">
             <button
               onClick={() => navigate("/hub")}
-              className="flex items-center gap-1.5 text-xs font-medium text-earth-brown bg-mango-light border border-mango/20 px-3 py-1.5 rounded-full hover:bg-mango/20 transition-colors"
+              aria-label="Open Negosyante Hub"
+              className="inline-flex items-center gap-1.5 text-xs font-medium text-earth-brown bg-mango-light border border-mango/20 px-4 min-h-11 rounded-full hover:bg-mango/20 transition-colors"
             >
               <Users className="w-3.5 h-3.5" />
               Hub
             </button>
-            <span className="text-xs font-[var(--font-mono)] text-muted-foreground bg-mango-light px-2 py-1 rounded-full">
+            <span className="inline-flex items-center text-xs font-[var(--font-mono)] text-muted-foreground bg-mango-light px-3 min-h-11 rounded-full">
               Manila City
             </span>
           </div>
@@ -123,7 +113,7 @@ export default function Home() {
       </header>
 
       {/* Hero Section */}
-      {messages.length <= 1 && !roadmapReady && (
+      {!hasUserMessages && !roadmapReady && (
         <motion.section
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -135,6 +125,7 @@ export default function Home() {
               src="https://d2xsxph8kpxj0f.cloudfront.net/310519663595373104/ZbKGxbkduWCL2xYHgfFPXg/hero-manila-street-jvEYVVKWcrpWYPWKF3uKev.webp"
               alt="Manila street scene with sari-sari stores and carinderia"
               className="w-full h-56 sm:h-72 object-cover"
+              loading="lazy"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-warm-cream via-warm-cream/60 to-transparent" />
           </div>
@@ -181,7 +172,7 @@ export default function Home() {
       )}
 
       {/* Chat Area */}
-      <div className="flex-1 overflow-y-auto pb-56">
+      <div className="flex-1 overflow-y-auto pb-40">
         <div className="container max-w-2xl py-4 space-y-4">
           <AnimatePresence>
             {messages.map((msg, i) => (
@@ -189,7 +180,7 @@ export default function Home() {
                 key={i}
                 initial={{ opacity: 0, y: 16 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3, delay: i * 0.05 }}
+                transition={{ duration: 0.3 }}
                 className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
               >
                 <div
@@ -260,20 +251,19 @@ export default function Home() {
       {/* Sticky Chat Input */}
       <div className="fixed bottom-16 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-border z-40">
         <div className="container max-w-2xl py-3">
-          {/* Quick suggestions */}
-          {messages.length <= 1 && (
-            <div className="flex gap-2 overflow-x-auto pb-3 scrollbar-hide">
-              {sampleUserMessages.map((msg, i) => (
-                <button
-                  key={i}
-                  onClick={() => handleSend(msg)}
-                  className="shrink-0 text-xs font-medium text-teal bg-teal-light border border-teal/20 px-3 py-2 rounded-full hover:bg-teal/20 transition-colors"
-                >
-                  {msg}
-                </button>
-              ))}
-            </div>
-          )}
+          {/* Quick suggestions — always visible, swap copy after first reply */}
+          <div className="flex gap-2 overflow-x-auto pb-3 scrollbar-hide">
+            {(hasUserMessages ? FOLLOWUP_SUGGESTIONS : sampleUserMessages).map((msg) => (
+              <button
+                key={msg}
+                onClick={() => handleSend(msg)}
+                disabled={isTyping}
+                className="shrink-0 inline-flex items-center text-xs font-medium text-teal bg-teal-light border border-teal/20 px-4 min-h-11 rounded-full hover:bg-teal/20 transition-colors disabled:opacity-50"
+              >
+                {msg}
+              </button>
+            ))}
+          </div>
 
           {/* Input bar */}
           <div className="flex items-center gap-2">
@@ -284,14 +274,22 @@ export default function Home() {
                 type="text"
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleSend()}
+                onKeyDown={(e) => {
+                  if (e.key !== "Enter") return;
+                  if (e.nativeEvent.isComposing) return;
+                  e.preventDefault();
+                  handleSend();
+                }}
                 placeholder="I-describe ang iyong negosyo..."
-                className="w-full pl-10 pr-4 py-3 rounded-xl bg-muted border border-border text-sm focus:outline-none focus:ring-2 focus:ring-teal/40 transition-all font-[var(--font-body)]"
+                aria-label="Chat message input"
+                enterKeyHint="send"
+                className="w-full pl-10 pr-4 py-3 rounded-xl bg-muted border border-border text-base focus:outline-none focus:ring-2 focus:ring-teal/40 transition-all font-[var(--font-body)]"
               />
             </div>
             <Button
               onClick={() => handleSend()}
               disabled={!inputValue.trim() || isTyping}
+              aria-label="Send message"
               className="bg-teal hover:bg-teal/90 text-white rounded-xl h-11 w-11 p-0 shrink-0 shadow-md"
             >
               <Send className="w-4 h-4" />

@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { Streamdown } from "streamdown";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { X, Send, Loader2, MessageCircle, HelpCircle } from "lucide-react";
@@ -10,15 +11,23 @@ interface FormHelpDrawerProps {
   onClose: () => void;
   formName: string;
   fieldLabel: string;
+  isGeneral: boolean;
   history: FormHelpMessage[];
   onAddMessage: (msg: FormHelpMessage) => void;
   userProfile?: Record<string, unknown>;
 }
 
-const QUICK_PROMPTS = [
+const FIELD_QUICK_PROMPTS = [
   "Ano ito?",
   "Ano ang ilalagay ko?",
   "May example ba?",
+];
+
+const GENERAL_QUICK_PROMPTS = [
+  "Anong order ng forms?",
+  "Magkano lahat ng bayad?",
+  "Saan ko ito ipa-file?",
+  "Qualified ba ako sa BMBE?",
 ];
 
 export default function FormHelpDrawer({
@@ -26,6 +35,7 @@ export default function FormHelpDrawer({
   onClose,
   formName,
   fieldLabel,
+  isGeneral,
   history,
   onAddMessage,
   userProfile,
@@ -51,8 +61,8 @@ export default function FormHelpDrawer({
     setInput("");
 
     formHelpMutation.mutate({
-      formName,
-      fieldLabel,
+      formName: formName || undefined,
+      fieldLabel: isGeneral ? undefined : fieldLabel,
       userQuestion: question,
       conversationHistory: history,
       userProfile,
@@ -74,16 +84,16 @@ export default function FormHelpDrawer({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="fixed inset-0 bg-black/30 z-40"
+            className="fixed inset-0 bg-black/30 z-[55]"
           />
 
-          {/* Drawer */}
+          {/* Drawer — z above BottomNav (z-50) so input bar isn't covered */}
           <motion.div
             initial={{ y: "100%" }}
             animate={{ y: 0 }}
             exit={{ y: "100%" }}
             transition={{ type: "spring", damping: 30, stiffness: 300 }}
-            className="fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-3xl shadow-2xl max-h-[70vh] flex flex-col"
+            className="fixed bottom-0 left-0 right-0 z-[60] bg-white rounded-t-3xl shadow-2xl max-h-[80vh] flex flex-col pb-[env(safe-area-inset-bottom)]"
           >
             {/* Handle */}
             <div className="flex justify-center pt-3 pb-1">
@@ -96,8 +106,12 @@ export default function FormHelpDrawer({
                 <HelpCircle className="w-4 h-4 text-teal" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-[10px] text-muted-foreground font-[var(--font-mono)] uppercase tracking-wider">{formName}</p>
-                <p className="text-sm font-[var(--font-display)] text-earth-brown truncate">{fieldLabel}</p>
+                <p className="text-[10px] text-muted-foreground font-[var(--font-mono)] uppercase tracking-wider">
+                  {isGeneral ? "NegosyoNav Assistant" : formName}
+                </p>
+                <p className="text-sm font-[var(--font-display)] text-earth-brown truncate">
+                  {isGeneral ? "Kausapin si NegosyoNav" : fieldLabel}
+                </p>
               </div>
               <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-muted transition-colors">
                 <X className="w-4 h-4 text-muted-foreground" />
@@ -109,7 +123,11 @@ export default function FormHelpDrawer({
               {history.length === 0 && (
                 <div className="text-center py-4">
                   <MessageCircle className="w-8 h-8 text-teal/40 mx-auto mb-2" />
-                  <p className="text-xs text-muted-foreground">Tanungin mo ako tungkol sa field na ito!</p>
+                  <p className="text-xs text-muted-foreground">
+                    {isGeneral
+                      ? "Magtanong tungkol sa forms, registration, grants, o kahit anong NegosyoNav topic!"
+                      : "Tanungin mo ako tungkol sa field na ito!"}
+                  </p>
                 </div>
               )}
               {history.map((msg, i) => (
@@ -124,7 +142,13 @@ export default function FormHelpDrawer({
                         : "bg-muted text-earth-brown rounded-bl-sm"
                     }`}
                   >
-                    {msg.content}
+                    {msg.role === "assistant" ? (
+                      <div className="prose prose-sm max-w-none prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-headings:my-2 prose-pre:my-2 prose-code:text-[0.85em] prose-a:text-teal prose-a:underline prose-strong:text-earth-brown break-words">
+                        <Streamdown>{msg.content}</Streamdown>
+                      </div>
+                    ) : (
+                      <p className="whitespace-pre-wrap break-words">{msg.content}</p>
+                    )}
                   </div>
                 </div>
               ))}
@@ -141,7 +165,7 @@ export default function FormHelpDrawer({
             {/* Quick prompts */}
             {history.length === 0 && (
               <div className="px-4 pb-2 flex gap-2 flex-wrap">
-                {QUICK_PROMPTS.map(q => (
+                {(isGeneral ? GENERAL_QUICK_PROMPTS : FIELD_QUICK_PROMPTS).map(q => (
                   <button
                     key={q}
                     onClick={() => sendQuestion(q)}
@@ -160,15 +184,17 @@ export default function FormHelpDrawer({
                 type="text"
                 value={input}
                 onChange={e => setInput(e.target.value)}
-                placeholder="Magtanong tungkol sa field na ito..."
-                className="flex-1 px-3 py-2.5 rounded-xl bg-muted border border-border text-sm focus:outline-none focus:ring-2 focus:ring-teal/40 font-[var(--font-body)]"
+                placeholder={isGeneral ? "Magtanong kay NegosyoNav..." : "Magtanong tungkol sa field na ito..."}
+                className="flex-1 min-h-11 px-3 rounded-xl bg-muted border border-border text-base focus:outline-none focus:ring-2 focus:ring-teal/40 font-[var(--font-body)]"
                 disabled={formHelpMutation.isPending}
+                inputMode="text"
+                autoComplete="off"
               />
               <Button
                 type="submit"
                 size="icon"
                 disabled={!input.trim() || formHelpMutation.isPending}
-                className="bg-teal hover:bg-teal/90 text-white rounded-xl shrink-0"
+                className="bg-teal hover:bg-teal/90 text-white rounded-xl shrink-0 min-h-11 min-w-11"
               >
                 <Send className="w-4 h-4" />
               </Button>

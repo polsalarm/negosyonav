@@ -18,6 +18,15 @@ vi.mock("./_core/llm", () => ({
 }));
 
 // Mock the db module
+const chatSessionStore = new Map<string, {
+  uid: string;
+  messages: Array<{ role: "user" | "assistant"; content: string; ts: Date }>;
+  roadmapReady: boolean;
+  extractedAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+}>();
+
 vi.mock("./db", () => ({
   getCommunityPosts: vi.fn().mockResolvedValue([
     {
@@ -42,7 +51,37 @@ vi.mock("./db", () => ({
   getProfile: vi.fn().mockResolvedValue(null),
   upsertProfile: vi.fn().mockResolvedValue({}),
   upsertUser: vi.fn(),
-  getUserByOpenId: vi.fn(),
+  getUserByUid: vi.fn().mockResolvedValue(null),
+  setOnboardingStep: vi.fn().mockResolvedValue(undefined),
+  markOnboardingComplete: vi.fn().mockResolvedValue(undefined),
+  getChatSession: vi.fn(async (uid: string) => chatSessionStore.get(uid) ?? null),
+  appendChatMessages: vi.fn(async (
+    uid: string,
+    msgs: Array<{ role: "user" | "assistant"; content: string }>,
+    roadmapReady: boolean,
+  ) => {
+    const now = new Date();
+    const prior = chatSessionStore.get(uid)?.messages ?? [];
+    const stamped = msgs.map(m => ({ ...m, ts: now }));
+    const combined = [...prior, ...stamped].slice(-40);
+    const next = {
+      uid,
+      messages: combined,
+      roadmapReady,
+      extractedAt: null,
+      createdAt: chatSessionStore.get(uid)?.createdAt ?? now,
+      updatedAt: now,
+    };
+    chatSessionStore.set(uid, next);
+    return next;
+  }),
+  clearChatSession: vi.fn(async (uid: string) => {
+    chatSessionStore.delete(uid);
+  }),
+  setChatExtractedAt: vi.fn(async (uid: string) => {
+    const s = chatSessionStore.get(uid);
+    if (s) chatSessionStore.set(uid, { ...s, extractedAt: new Date() });
+  }),
 }));
 
 function createPublicContext(): TrpcContext {
@@ -62,17 +101,75 @@ function createAuthContext(): TrpcContext {
 }
 
 describe("AI Chat Router", () => {
-  it("returns a Taglish response from the LLM", async () => {
-    const ctx = createAuthContext();
-    const caller = appRouter.createCaller(ctx);
+  it("getSession returns empty session when no doc exists", async () => {
+    chatSessionStore.clear();
+    const caller = appRouter.createCaller(createAuthContext());
+    const result = await caller.ai.getSession();
+    expect(result).toEqual({ messages: [], roadmapReady: false });
+  });
+
+  it("ai.chat persists messages and returns roadmapReady=true for biz+locality", async () => {
+    chatSessionStore.clear();
+    const caller = appRouter.createCaller(createAuthContext());
 
     const result = await caller.ai.chat({
-      messages: [{ role: "user", content: "Gusto ko mag-open ng sari-sari store sa Tondo, Manila" }],
+      content: "Gusto ko mag-open ng sari-sari store sa Tondo, Manila",
     });
 
-    expect(result).toHaveProperty("content");
     expect(typeof result.content).toBe("string");
     expect(result.content.length).toBeGreaterThan(0);
+    expect(result.roadmapReady).toBe(true);
+
+    const stored = chatSessionStore.get("test-user-001");
+    expect(stored?.messages.length).toBe(2);
+    expect(stored?.messages[0].role).toBe("user");
+    expect(stored?.messages[1].role).toBe("assistant");
+    expect(stored?.roadmapReady).toBe(true);
+  });
+
+  it("ai.chat returns roadmapReady=false when content lacks signals", async () => {
+    chatSessionStore.clear();
+    const caller = appRouter.createCaller(createAuthContext());
+
+    const result = await caller.ai.chat({ content: "hello" });
+
+    expect(result.roadmapReady).toBe(false);
+  });
+
+  it("ai.chat keeps roadmapReady sticky once true", async () => {
+    chatSessionStore.clear();
+    const caller = appRouter.createCaller(createAuthContext());
+
+    await caller.ai.chat({ content: "Sari-sari store sa Tondo" });
+    const followup = await caller.ai.chat({ content: "salamat!" });
+
+    expect(followup.roadmapReady).toBe(true);
+  });
+
+  it("ai.extractProfile falls back to Firestore session when input omitted", async () => {
+    chatSessionStore.clear();
+    const caller = appRouter.createCaller(createAuthContext());
+
+    await caller.ai.chat({ content: "Sari-sari store sa Tondo" });
+    const result = await caller.ai.extractProfile();
+
+    // Mocked LLM returns the canned Taglish string, which JSON.parse fails on,
+    // so the procedure returns {} — but the call should not throw and should
+    // have read from the persisted session.
+    expect(result).toEqual({});
+    const stored = chatSessionStore.get("test-user-001");
+    expect(stored?.messages.length).toBeGreaterThan(0);
+  });
+
+  it("ai.clearSession wipes the doc", async () => {
+    chatSessionStore.clear();
+    const caller = appRouter.createCaller(createAuthContext());
+
+    await caller.ai.chat({ content: "Sari-sari store sa Tondo" });
+    expect(chatSessionStore.has("test-user-001")).toBe(true);
+
+    await caller.ai.clearSession();
+    expect(chatSessionStore.has("test-user-001")).toBe(false);
   });
 });
 
@@ -159,7 +256,7 @@ describe("Feedback Router", () => {
 describe("Procedure auth gates", () => {
   it.each([
     ["ai.chat", (c: ReturnType<typeof appRouter.createCaller>) =>
-      c.ai.chat({ messages: [{ role: "user", content: "hi" }] })],
+      c.ai.chat({ content: "hi" })],
     ["grants.check", (c: ReturnType<typeof appRouter.createCaller>) =>
       c.grants.check({ capitalization: 1000 })],
     ["community.list", (c: ReturnType<typeof appRouter.createCaller>) =>

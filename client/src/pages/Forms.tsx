@@ -410,7 +410,7 @@ export default function Forms() {
                           setValue={(name, v) => setValue(form.id, name, v)}
                           onSubmit={() => handleDownloadPdf(form)}
                           isSubmitting={generatePdfMutation.isPending}
-                          onHelp={(label) => { setActiveFormName(form.title); formHelp.openHelp(label); }}
+                          onHelp={(label) => { setActiveFormName(form.title); formHelp.openFieldHelp(label); }}
                         />
                       )}
                     </div>
@@ -430,14 +430,13 @@ export default function Forms() {
           animate={{ scale: 1 }}
           whileTap={{ scale: 0.9 }}
           onClick={() => {
-            const firstForm = forms[0];
-            if (firstForm) {
-              setActiveFormName(firstForm.title);
-              formHelp.openHelp("General na tanong sa form");
-            }
+            const expanded = forms.find(f => f.id === expandedForm);
+            setActiveFormName(expanded?.title ?? "");
+            formHelp.openGeneralHelp();
           }}
           className="fixed bottom-20 right-4 w-14 h-14 bg-teal text-white rounded-full shadow-lg flex items-center justify-center z-30 hover:bg-teal/90 transition-colors"
-          title="Form Help Assistant"
+          aria-label="Kausapin si NegosyoNav"
+          title="Kausapin si NegosyoNav"
         >
           <MessageCircle className="w-6 h-6" />
         </motion.button>
@@ -448,7 +447,8 @@ export default function Forms() {
         isOpen={formHelp.isOpen}
         onClose={formHelp.closeHelp}
         formName={formHelp.formName}
-        fieldLabel={formHelp.activeField?.label ?? ""}
+        fieldLabel={formHelp.fieldLabel}
+        isGeneral={formHelp.isGeneral}
         history={formHelp.history}
         onAddMessage={formHelp.addMessage}
         userProfile={p ? (p as unknown as Record<string, unknown>) : undefined}

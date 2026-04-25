@@ -5,17 +5,26 @@ export type FormHelpMessage = {
   content: string;
 };
 
+export type FormHelpMode =
+  | { kind: "field"; label: string }
+  | { kind: "general" };
+
 export function useFormHelp(formName: string) {
-  const [activeField, setActiveField] = useState<{ label: string } | null>(null);
+  const [mode, setMode] = useState<FormHelpMode | null>(null);
   const [history, setHistory] = useState<FormHelpMessage[]>([]);
 
-  const openHelp = (fieldLabel: string) => {
-    setActiveField({ label: fieldLabel });
+  const openFieldHelp = (fieldLabel: string) => {
+    setMode({ kind: "field", label: fieldLabel });
+    setHistory([]);
+  };
+
+  const openGeneralHelp = () => {
+    setMode({ kind: "general" });
     setHistory([]);
   };
 
   const closeHelp = () => {
-    setActiveField(null);
+    setMode(null);
     setHistory([]);
   };
 
@@ -25,10 +34,13 @@ export function useFormHelp(formName: string) {
 
   return {
     formName,
-    activeField,
+    mode,
     history,
-    isOpen: !!activeField,
-    openHelp,
+    isOpen: mode !== null,
+    isGeneral: mode?.kind === "general",
+    fieldLabel: mode?.kind === "field" ? mode.label : "",
+    openFieldHelp,
+    openGeneralHelp,
     closeHelp,
     addMessage,
     setHistory,
