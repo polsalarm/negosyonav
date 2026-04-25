@@ -9,6 +9,8 @@ export type FirestoreUser = {
   email: string | null;
   loginMethod: string | null;
   role: "user" | "admin";
+  onboardingCompletedAt: Date | null;
+  onboardingStep: number | null;
   createdAt: Date;
   lastSignedIn: Date;
 };
@@ -120,10 +122,26 @@ export async function upsertUser(data: {
       email: data.email ?? null,
       loginMethod: data.loginMethod ?? "email",
       role: "user",
+      onboardingCompletedAt: null,
+      onboardingStep: 0,
       createdAt: FieldValue.serverTimestamp(),
       lastSignedIn: FieldValue.serverTimestamp(),
     });
   }
+}
+
+export async function setOnboardingStep(uid: string, step: number): Promise<void> {
+  await db().collection("users").doc(uid).update({
+    onboardingStep: step,
+    lastSignedIn: FieldValue.serverTimestamp(),
+  });
+}
+
+export async function markOnboardingComplete(uid: string): Promise<void> {
+  await db().collection("users").doc(uid).update({
+    onboardingCompletedAt: FieldValue.serverTimestamp(),
+    lastSignedIn: FieldValue.serverTimestamp(),
+  });
 }
 
 export async function getUserByUid(uid: string): Promise<FirestoreUser | null> {
@@ -136,6 +154,8 @@ export async function getUserByUid(uid: string): Promise<FirestoreUser | null> {
     email: d.email ?? null,
     loginMethod: d.loginMethod ?? null,
     role: d.role ?? "user",
+    onboardingCompletedAt: d.onboardingCompletedAt ? toDate(d.onboardingCompletedAt) : null,
+    onboardingStep: typeof d.onboardingStep === "number" ? d.onboardingStep : null,
     createdAt: toDate(d.createdAt),
     lastSignedIn: toDate(d.lastSignedIn),
   };

@@ -5,6 +5,7 @@ import { z } from "zod";
 import {
   getCommunityPosts, createCommunityPost, voteOnPost, getUserVotes,
   createFeedback, getProfile, upsertProfile, upsertUser,
+  getUserByUid, setOnboardingStep, markOnboardingComplete,
 } from "./db";
 
 // ─── System prompts ────────────────────────────────────────────────────────────
@@ -105,7 +106,15 @@ export const appRouter = router({
 
   // Auth
   auth: router({
-    me: publicProcedure.query(({ ctx }) => ctx.user),
+    me: publicProcedure.query(async ({ ctx }) => {
+      if (!ctx.user) return null;
+      const userDoc = await getUserByUid(ctx.user.uid);
+      return {
+        ...ctx.user,
+        onboardingCompletedAt: userDoc?.onboardingCompletedAt ? userDoc.onboardingCompletedAt.getTime() : null,
+        onboardingStep: userDoc?.onboardingStep ?? null,
+      };
+    }),
 
     logout: publicProcedure.mutation(() => {
       // Actual sign-out happens client-side via Firebase signOut().
@@ -127,6 +136,19 @@ export const appRouter = router({
           loginMethod: "email",
         });
         return { success: true };
+      }),
+
+    setOnboardingStep: protectedProcedure
+      .input(z.object({ step: z.number().int().min(0).max(20) }))
+      .mutation(async ({ ctx, input }) => {
+        await setOnboardingStep(ctx.user.uid, input.step);
+        return { success: true } as const;
+      }),
+
+    completeOnboarding: protectedProcedure
+      .mutation(async ({ ctx }) => {
+        await markOnboardingComplete(ctx.user.uid);
+        return { success: true } as const;
       }),
   }),
 

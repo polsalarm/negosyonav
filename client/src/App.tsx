@@ -14,8 +14,10 @@ import Places from "./pages/Places";
 import Calendar from "./pages/Calendar";
 import Planner from "./pages/Planner";
 import Login from "./pages/Login";
+import Onboarding from "./pages/Onboarding";
 import { AuthProvider } from "./contexts/AuthContext";
 import RequireAuth from "./components/RequireAuth";
+import OnboardingGate from "./components/OnboardingGate";
 import {
   MessageCircle, Map, Users, User, FileText, Award, MapPin, CalendarDays,
 } from "lucide-react";
@@ -27,18 +29,21 @@ function Router() {
       <Route path="/404" component={NotFound} />
       <Route>
         <RequireAuth>
-          <Switch>
-            <Route path={"/"} component={Home} />
-            <Route path={"/roadmap"} component={Roadmap} />
-            <Route path={"/hub"} component={Hub} />
-            <Route path={"/profile"} component={Profile} />
-            <Route path={"/forms"} component={Forms} />
-            <Route path={"/grants"} component={Grants} />
-            <Route path={"/places"} component={Places} />
-            <Route path={"/calendar"} component={Calendar} />
-            <Route path={"/planner"} component={Planner} />
-            <Route component={NotFound} />
-          </Switch>
+          <OnboardingGate>
+            <Switch>
+              <Route path={"/onboarding"} component={Onboarding} />
+              <Route path={"/"} component={Home} />
+              <Route path={"/roadmap"} component={Roadmap} />
+              <Route path={"/hub"} component={Hub} />
+              <Route path={"/profile"} component={Profile} />
+              <Route path={"/forms"} component={Forms} />
+              <Route path={"/grants"} component={Grants} />
+              <Route path={"/places"} component={Places} />
+              <Route path={"/calendar"} component={Calendar} />
+              <Route path={"/planner"} component={Planner} />
+              <Route component={NotFound} />
+            </Switch>
+          </OnboardingGate>
         </RequireAuth>
       </Route>
     </Switch>
@@ -57,7 +62,7 @@ function BottomNav() {
   ];
 
   // Don't show bottom nav on certain pages
-  const hideOn = ["/places", "/calendar", "/grants", "/planner", "/login"];
+  const hideOn = ["/places", "/calendar", "/grants", "/planner", "/login", "/onboarding"];
   if (hideOn.includes(location)) return null;
 
   return (
