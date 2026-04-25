@@ -2,9 +2,11 @@
  * NegosyoNav Home Page
  * Design: Jeepney Modernism — warm mango/teal palette, vertical card-stack,
  * conversational chat UI at the bottom, Filipino micro-entrepreneur focused.
+ * Now with real AI-powered Taglish chat via LLM backend.
  */
 import { useState, useRef, useEffect } from "react";
 import { useLocation } from "wouter";
+import { useAuth } from "@/_core/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -16,8 +18,10 @@ import {
   ChevronDown,
   Sparkles,
   MessageCircle,
+  Users,
 } from "lucide-react";
-import { demoMessages, sampleUserMessages, getAssistantResponse } from "@/data/manilaData";
+import { sampleUserMessages } from "@/data/manilaData";
+import { trpc } from "@/lib/trpc";
 import { Streamdown } from "streamdown";
 
 interface ChatMessage {
@@ -25,33 +29,64 @@ interface ChatMessage {
   content: string;
 }
 
+const WELCOME_MESSAGE: ChatMessage = {
+  role: "assistant",
+  content:
+    "Kumusta! Ako si NegosyoNav, ang iyong gabay sa pag-register ng negosyo. 🏪\n\nSabihin mo lang sa akin:\n• Anong klaseng negosyo ang gusto mong simulan?\n• Saan mo ito itatayo? (city/municipality)\n\nHalimbawa: \"Gusto ko mag-open ng sari-sari store sa Tondo, Manila\"",
+};
+
 export default function Home() {
+  const { user, isAuthenticated } = useAuth();
   const [, navigate] = useLocation();
-  const [messages, setMessages] = useState<ChatMessage[]>(demoMessages);
+  const [messages, setMessages] = useState<ChatMessage[]>([WELCOME_MESSAGE]);
   const [inputValue, setInputValue] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const [roadmapReady, setRoadmapReady] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  const chatMutation = trpc.ai.chat.useMutation();
+
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isTyping]);
 
-  const handleSend = (text?: string) => {
+  const handleSend = async (text?: string) => {
     const msg = text || inputValue.trim();
-    if (!msg) return;
+    if (!msg || isTyping) return;
 
-    setMessages((prev) => [...prev, { role: "user", content: msg }]);
+    const newUserMessage: ChatMessage = { role: "user", content: msg };
+    const updatedMessages = [...messages, newUserMessage];
+    setMessages(updatedMessages);
     setInputValue("");
     setIsTyping(true);
 
-    setTimeout(() => {
-      const response = getAssistantResponse(msg);
-      setMessages((prev) => [...prev, { role: "assistant", content: response }]);
-      setIsTyping(false);
+    try {
+      // Send only user/assistant messages (not system) to the backend
+      const chatHistory = updatedMessages.map((m) => ({
+        role: m.role,
+        content: m.content,
+      }));
+
+      const response = await chatMutation.mutateAsync({ messages: chatHistory });
+
+      setMessages((prev) => [
+        ...prev,
+        { role: "assistant", content: response.content },
+      ]);
       setRoadmapReady(true);
-    }, 1500);
+    } catch (error) {
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: "assistant",
+          content:
+            "Pasensya na, may technical issue ngayon. Subukan mo ulit mamaya! 🙏",
+        },
+      ]);
+    } finally {
+      setIsTyping(false);
+    }
   };
 
   return (
@@ -67,9 +102,18 @@ export default function Home() {
               NegosyoNav
             </span>
           </div>
-          <span className="text-xs font-[var(--font-mono)] text-muted-foreground bg-mango-light px-2 py-1 rounded-full">
-            Manila City
-          </span>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => navigate("/hub")}
+              className="flex items-center gap-1.5 text-xs font-medium text-earth-brown bg-mango-light border border-mango/20 px-3 py-1.5 rounded-full hover:bg-mango/20 transition-colors"
+            >
+              <Users className="w-3.5 h-3.5" />
+              Hub
+            </button>
+            <span className="text-xs font-[var(--font-mono)] text-muted-foreground bg-mango-light px-2 py-1 rounded-full">
+              Manila City
+            </span>
+          </div>
         </div>
       </header>
 
@@ -174,7 +218,11 @@ export default function Home() {
                       key={i}
                       className="w-2 h-2 rounded-full bg-teal"
                       animate={{ y: [0, -6, 0] }}
-                      transition={{ repeat: Infinity, duration: 0.6, delay: i * 0.15 }}
+                      transition={{
+                        repeat: Infinity,
+                        duration: 0.6,
+                        delay: i * 0.15,
+                      }}
                     />
                   ))}
                 </div>

@@ -6,6 +6,7 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
+import { trpc } from "@/lib/trpc";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowLeft,
@@ -23,8 +24,16 @@ import {
   Building2,
   ShieldCheck,
   BadgeCheck,
+  Users,
+  MessageSquareWarning,
+  Flag,
+  X,
+  Send,
+  SquareCheck,
+  Square,
 } from "lucide-react";
 import { manilaData, type RegistrationStep } from "@/data/manilaData";
+import { toast } from "sonner";
 
 function formatCurrency(amount: number): string {
   return `₱${amount.toLocaleString()}`;
@@ -331,6 +340,34 @@ export default function Roadmap() {
   const [, navigate] = useLocation();
   const [completedSteps, setCompletedSteps] = useState<Set<number>>(new Set());
   const [showGrants, setShowGrants] = useState(false);
+  const [checkedDocs, setCheckedDocs] = useState<Set<string>>(new Set());
+  const [showFeedback, setShowFeedback] = useState(false);
+  const [feedbackType, setFeedbackType] = useState<"outdated_info" | "incorrect_data" | "suggestion" | "bug_report" | "general">("outdated_info");
+  const [feedbackStep, setFeedbackStep] = useState<number | undefined>(undefined);
+  const [feedbackMessage, setFeedbackMessage] = useState("");
+
+  const feedbackMutation = trpc.feedback.submit.useMutation({
+    onSuccess: () => {
+      toast.success("Salamat sa feedback mo! 🙏");
+      setShowFeedback(false);
+      setFeedbackMessage("");
+    },
+    onError: () => {
+      toast.error("May error sa pag-submit. Subukan ulit.");
+    },
+  });
+
+  const totalDocs = manilaData.registration_steps.reduce((sum, s) => sum + s.requirements.length, 0);
+
+  const handleSubmitFeedback = () => {
+    if (!feedbackMessage.trim()) return;
+    feedbackMutation.mutate({
+      feedbackType,
+      stepNumber: feedbackStep,
+      lguId: "manila_city",
+      message: feedbackMessage,
+    });
+  };
 
   const toggleComplete = (stepNum: number) => {
     setCompletedSteps((prev) => {
@@ -599,8 +636,83 @@ export default function Roadmap() {
         </div>
       </div>
 
-      {/* Back to Chat */}
-      <div className="container max-w-2xl mt-8 flex justify-center">
+      {/* Document Checklist */}
+      <div className="container max-w-2xl mt-6">
+        <h2 className="font-[var(--font-display)] text-base text-earth-brown mb-3 flex items-center gap-2">
+          <SquareCheck className="w-5 h-5 text-teal" />
+          Document Checklist
+        </h2>
+        <div className="bg-white rounded-2xl border border-border p-4 shadow-sm">
+          <p className="text-xs text-muted-foreground mb-3">
+            I-check ang mga documents na meron ka na. Auto-calculate ang remaining costs.
+          </p>
+          {manilaData.registration_steps.map((step) => (
+            <div key={step.step_number} className="mb-3 last:mb-0">
+              <p className="text-xs font-semibold text-earth-brown mb-1.5">
+                Step {step.step_number}: {step.title}
+              </p>
+              <div className="space-y-1 pl-2">
+                {step.requirements.map((req, i) => {
+                  const key = `${step.step_number}-${i}`;
+                  const isChecked = checkedDocs.has(key);
+                  return (
+                    <button
+                      key={key}
+                      onClick={() => {
+                        setCheckedDocs((prev) => {
+                          const next = new Set(prev);
+                          if (next.has(key)) next.delete(key);
+                          else next.add(key);
+                          return next;
+                        });
+                      }}
+                      className="flex items-center gap-2 text-xs text-left w-full py-1 hover:bg-muted/50 rounded px-1 transition-colors"
+                    >
+                      {isChecked ? (
+                        <SquareCheck className="w-4 h-4 text-success shrink-0" />
+                      ) : (
+                        <Square className="w-4 h-4 text-muted-foreground shrink-0" />
+                      )}
+                      <span className={isChecked ? "text-muted-foreground line-through" : "text-foreground"}>
+                        {req}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+          <div className="mt-3 pt-3 border-t border-border/50">
+            <p className="text-xs text-muted-foreground">
+              <span className="font-semibold text-teal">{checkedDocs.size}</span> of{" "}
+              {totalDocs} documents ready
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Feedback / Report Section */}
+      <div className="container max-w-2xl mt-6">
+        <button
+          onClick={() => setShowFeedback(true)}
+          className="w-full bg-white rounded-2xl border border-border p-4 shadow-sm flex items-center gap-3 hover:border-teal/30 transition-colors text-left"
+        >
+          <div className="w-10 h-10 rounded-full bg-jeepney-red/10 flex items-center justify-center shrink-0">
+            <Flag className="w-5 h-5 text-jeepney-red" />
+          </div>
+          <div>
+            <h3 className="font-[var(--font-display)] text-sm text-earth-brown">
+              May mali ba? I-report dito
+            </h3>
+            <p className="text-xs text-muted-foreground">
+              Outdated info, incorrect data, o suggestions — tulungan mo kami mag-improve!
+            </p>
+          </div>
+        </button>
+      </div>
+
+      {/* Back to Chat + Hub */}
+      <div className="container max-w-2xl mt-8 flex justify-center gap-3 pb-8">
         <Button
           onClick={() => navigate("/")}
           variant="outline"
@@ -609,7 +721,99 @@ export default function Roadmap() {
           <ArrowLeft className="w-4 h-4 mr-2" />
           Back to Chat
         </Button>
+        <Button
+          onClick={() => navigate("/hub")}
+          variant="outline"
+          className="rounded-xl border-mango/30 text-earth-brown hover:bg-mango-light"
+        >
+          <Users className="w-4 h-4 mr-2" />
+          Negosyante Hub
+        </Button>
       </div>
+
+      {/* Feedback Modal */}
+      <AnimatePresence>
+        {showFeedback && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-black/50 flex items-end sm:items-center justify-center"
+            onClick={() => setShowFeedback(false)}
+          >
+            <motion.div
+              initial={{ y: 100, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 100, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl p-5 max-h-[80vh] overflow-y-auto"
+            >
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="font-[var(--font-display)] text-lg text-earth-brown">
+                  Report / Feedback
+                </h2>
+                <button onClick={() => setShowFeedback(false)}>
+                  <X className="w-5 h-5 text-muted-foreground" />
+                </button>
+              </div>
+
+              {/* Feedback Type */}
+              <div className="flex flex-wrap gap-2 mb-4">
+                {([
+                  { value: "outdated_info", label: "Outdated Info" },
+                  { value: "incorrect_data", label: "Incorrect Data" },
+                  { value: "suggestion", label: "Suggestion" },
+                  { value: "general", label: "General" },
+                ] as const).map((type) => (
+                  <button
+                    key={type.value}
+                    onClick={() => setFeedbackType(type.value)}
+                    className={`text-xs font-medium px-3 py-1.5 rounded-full border transition-all ${
+                      feedbackType === type.value
+                        ? "bg-teal/10 text-teal border-teal/30 ring-2 ring-offset-1 ring-teal/20"
+                        : "bg-white text-muted-foreground border-border"
+                    }`}
+                  >
+                    {type.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Step selector */}
+              <select
+                value={feedbackStep ?? ""}
+                onChange={(e) => setFeedbackStep(e.target.value ? Number(e.target.value) : undefined)}
+                className="w-full px-4 py-3 rounded-xl bg-muted border border-border text-sm focus:outline-none focus:ring-2 focus:ring-teal/40 mb-3 font-[var(--font-body)]"
+              >
+                <option value="">General (walang specific step)</option>
+                {manilaData.registration_steps.map((s) => (
+                  <option key={s.step_number} value={s.step_number}>
+                    Step {s.step_number}: {s.title}
+                  </option>
+                ))}
+              </select>
+
+              {/* Message */}
+              <textarea
+                value={feedbackMessage}
+                onChange={(e) => setFeedbackMessage(e.target.value)}
+                placeholder="Describe the issue or suggestion..."
+                rows={4}
+                className="w-full px-4 py-3 rounded-xl bg-muted border border-border text-sm focus:outline-none focus:ring-2 focus:ring-teal/40 mb-4 resize-none font-[var(--font-body)]"
+              />
+
+              <Button
+                onClick={handleSubmitFeedback}
+                disabled={!feedbackMessage.trim() || feedbackMutation.isPending}
+                className="w-full bg-teal hover:bg-teal/90 text-white font-[var(--font-display)] py-3 rounded-xl"
+              >
+                <Send className="w-4 h-4 mr-2" />
+                {feedbackMutation.isPending ? "Sending..." : "Submit Feedback"}
+              </Button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
