@@ -1,7 +1,7 @@
 import { trpc } from "@/lib/trpc";
 import { auth } from "@/lib/firebase";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { httpBatchLink } from "@trpc/client";
+import { httpBatchLink, httpSubscriptionLink, splitLink } from "@trpc/client";
 import { createRoot } from "react-dom/client";
 import superjson from "superjson";
 import App from "./App";
@@ -22,19 +22,32 @@ if ("serviceWorker" in navigator) {
 
 const queryClient = new QueryClient();
 
+async function getAuthToken(): Promise<string | undefined> {
+  const user = auth.currentUser;
+  if (!user) return undefined;
+  return user.getIdToken();
+}
+
 const trpcClient = trpc.createClient({
   links: [
-    httpBatchLink({
-      url: "/api/trpc",
-      transformer: superjson,
-      async headers() {
-        const user = auth.currentUser;
-        if (user) {
-          const token = await user.getIdToken();
-          return { Authorization: `Bearer ${token}` };
-        }
-        return {};
-      },
+    splitLink({
+      condition: (op) => op.type === "subscription",
+      true: httpSubscriptionLink({
+        url: "/api/trpc",
+        transformer: superjson,
+        connectionParams: async () => {
+          const token = await getAuthToken();
+          return token ? { token } : {};
+        },
+      }),
+      false: httpBatchLink({
+        url: "/api/trpc",
+        transformer: superjson,
+        async headers() {
+          const token = await getAuthToken();
+          return token ? { Authorization: `Bearer ${token}` } : {};
+        },
+      }),
     }),
   ],
 });

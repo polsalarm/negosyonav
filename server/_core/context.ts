@@ -21,8 +21,14 @@ export async function createContext(
 
   try {
     const authHeader = opts.req.headers.authorization;
-    if (authHeader?.startsWith("Bearer ") && adminAuth && adminDb) {
-      const token = authHeader.split("Bearer ")[1];
+    const headerToken = authHeader?.startsWith("Bearer ")
+      ? authHeader.split("Bearer ")[1]
+      : undefined;
+    const connectionToken = (opts.info?.connectionParams as { token?: string } | null | undefined)
+      ?.token;
+    const token = headerToken ?? connectionToken;
+
+    if (token && adminAuth && adminDb) {
       const decoded = await adminAuth.verifyIdToken(token);
 
       // Fetch Firestore user doc to get role

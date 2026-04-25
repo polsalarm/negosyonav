@@ -15,7 +15,11 @@ import { useAuth } from "@/contexts/AuthContext";
 
 export default function Login() {
   const [, navigate] = useLocation();
-  const [mode, setMode] = useState<"signin" | "signup">("signin");
+  const [mode, setMode] = useState<"signin" | "signup">(() => {
+    if (typeof window === "undefined") return "signup";
+    const params = new URLSearchParams(window.location.search);
+    return params.get("mode") === "signin" ? "signin" : "signup";
+  });
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [displayName, setDisplayName] = useState("");

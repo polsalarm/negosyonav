@@ -169,16 +169,9 @@ const plugins = [react(), tailwindcss(), ...(isDev ? [jsxLocPlugin(), vitePlugin
   },
   workbox: {
     globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
-    runtimeCaching: [
-      {
-        urlPattern: /^\/api\//,
-        handler: "NetworkFirst",
-        options: {
-          cacheName: "api-cache",
-          expiration: { maxEntries: 50, maxAgeSeconds: 60 * 60 },
-        },
-      },
-    ],
+    cleanupOutdatedCaches: true,
+    clientsClaim: true,
+    skipWaiting: true,
   },
 })];
 

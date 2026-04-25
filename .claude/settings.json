@@ -6,5 +6,8 @@
       "WebFetch(domain:manila.gov.ph)",
       "WebFetch(domain:dswd.gov.ph)"
     ]
+  },
+  "enabledPlugins": {
+    "superpowers@claude-plugins-official": true
   }
 }
