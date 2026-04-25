@@ -154,7 +154,7 @@ function vitePluginManusDebugCollector(): Plugin {
 const isDev = process.env.NODE_ENV !== "production";
 const plugins = [react(), tailwindcss(), ...(isDev ? [jsxLocPlugin(), vitePluginManusRuntime(), vitePluginManusDebugCollector()] : []), VitePWA({
   registerType: "autoUpdate",
-  includeAssets: ["favicon.svg", "favicon.ico"],
+  includeAssets: ["LOGO.svg", "favicon.ico"],
   manifest: {
     name: "NegosyoNav - Lakad Roadmap",
     short_name: "NegosyoNav",
@@ -164,7 +164,7 @@ const plugins = [react(), tailwindcss(), ...(isDev ? [jsxLocPlugin(), vitePlugin
     display: "standalone",
     start_url: "/",
     icons: [
-      { src: "/favicon.svg", sizes: "any", type: "image/svg+xml" },
+      { src: "/LOGO.svg", sizes: "any", type: "image/svg+xml" },
     ],
   },
   workbox: {
