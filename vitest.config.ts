@@ -12,26 +12,18 @@ const alias = {
 export default defineConfig({
   root: templateRoot,
   resolve: { alias },
+  esbuild: { jsx: "automatic" },
   test: {
-    projects: [
-      {
-        resolve: { alias },
-        test: {
-          name: "server",
-          environment: "node",
-          include: ["server/**/*.test.ts", "server/**/*.spec.ts"],
-        },
-      },
-      {
-        resolve: { alias },
-        test: {
-          name: "client",
-          environment: "jsdom",
-          include: ["client/**/*.test.ts", "client/**/*.test.tsx"],
-          setupFiles: ["client/test/setup.ts"],
-          globals: false,
-        },
-      },
+    include: [
+      "server/**/*.test.ts",
+      "server/**/*.spec.ts",
+      "client/**/*.test.ts",
+      "client/**/*.test.tsx",
     ],
+    environmentMatchGlobs: [
+      ["client/**", "jsdom"],
+      ["server/**", "node"],
+    ],
+    setupFiles: ["client/test/setup.ts"],
   },
 });

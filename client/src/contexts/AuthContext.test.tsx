@@ -1,21 +1,27 @@
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { User as FirebaseUser } from "firebase/auth";
 
 type AuthCallback = (u: FirebaseUser | null) => void;
-let lastCallback: AuthCallback | null = null;
-const unsubscribe = vi.fn();
-const signOutMock = vi.fn(async () => {});
+const hoisted = vi.hoisted(() => {
+  return {
+    state: { lastCallback: null as AuthCallback | null },
+    unsubscribe: vi.fn(),
+    signOutMock: vi.fn(async () => {}),
+    syncUserMutate: vi.fn(),
+  };
+});
+const { state, unsubscribe, signOutMock, syncUserMutate } = hoisted;
 
 vi.mock("firebase/auth", async () => {
   const actual = await vi.importActual<typeof import("firebase/auth")>("firebase/auth");
   return {
     ...actual,
     onAuthStateChanged: (_auth: unknown, cb: AuthCallback) => {
-      lastCallback = cb;
-      return unsubscribe;
+      hoisted.state.lastCallback = cb;
+      return hoisted.unsubscribe;
     },
-    signOut: signOutMock,
+    signOut: hoisted.signOutMock,
   };
 });
 
@@ -25,12 +31,11 @@ vi.mock("@/lib/firebase", () => ({
   firebaseApp: {},
 }));
 
-const syncUserMutate = vi.fn();
 vi.mock("@/lib/trpc", () => ({
   trpc: {
     auth: {
       syncUser: {
-        useMutation: () => ({ mutate: syncUserMutate }),
+        useMutation: () => ({ mutate: hoisted.syncUserMutate }),
       },
     },
   },
@@ -50,7 +55,7 @@ function Probe() {
 }
 
 beforeEach(() => {
-  lastCallback = null;
+  state.lastCallback = null;
   unsubscribe.mockClear();
   signOutMock.mockClear();
   syncUserMutate.mockClear();
@@ -65,7 +70,7 @@ describe("AuthProvider", () => {
     render(<AuthProvider><Probe /></AuthProvider>);
     expect(screen.getByTestId("loading").textContent).toBe("yes");
 
-    await act(async () => { lastCallback?.(null); });
+    await act(async () => { state.lastCallback?.(null); });
 
     expect(screen.getByTestId("loading").textContent).toBe("no");
     expect(screen.getByTestId("auth").textContent).toBe("no");
@@ -76,7 +81,7 @@ describe("AuthProvider", () => {
     render(<AuthProvider><Probe /></AuthProvider>);
 
     await act(async () => {
-      lastCallback?.({
+      state.lastCallback?.({
         uid: "u1", email: "a@b.com", displayName: "Sample",
       } as unknown as FirebaseUser);
     });
@@ -90,8 +95,8 @@ describe("AuthProvider", () => {
   it("does not call syncUser again if the same user fires twice", async () => {
     render(<AuthProvider><Probe /></AuthProvider>);
     const u = { uid: "u1", email: "a@b.com", displayName: "Sample" } as unknown as FirebaseUser;
-    await act(async () => { lastCallback?.(u); });
-    await act(async () => { lastCallback?.(u); });
+    await act(async () => { state.lastCallback?.(u); });
+    await act(async () => { state.lastCallback?.(u); });
     expect(syncUserMutate).toHaveBeenCalledTimes(1);
   });
 
@@ -102,10 +107,8 @@ describe("AuthProvider", () => {
 
     await act(async () => { vi.advanceTimersByTime(5000); });
 
-    await waitFor(() => {
-      expect(screen.getByTestId("loading").textContent).toBe("no");
-      expect(screen.getByTestId("auth").textContent).toBe("no");
-    });
+    expect(screen.getByTestId("loading").textContent).toBe("no");
+    expect(screen.getByTestId("auth").textContent).toBe("no");
   });
 
   it("logout calls firebase signOut", async () => {
@@ -115,7 +118,7 @@ describe("AuthProvider", () => {
       return null;
     }
     render(<AuthProvider><Capture /></AuthProvider>);
-    await act(async () => { lastCallback?.(null); });
+    await act(async () => { state.lastCallback?.(null); });
     await act(async () => { await captured!.logout(); });
     expect(signOutMock).toHaveBeenCalledTimes(1);
   });
