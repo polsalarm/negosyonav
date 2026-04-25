@@ -7,6 +7,20 @@ import superjson from "superjson";
 import App from "./App";
 import { getLoginUrl } from "./const";
 import "./index.css";
+import { registerSW } from "virtual:pwa-register";
+
+// Register service worker for offline support
+if ("serviceWorker" in navigator) {
+  registerSW({
+    onNeedRefresh() {
+      // Could show a toast here asking user to refresh
+      console.log("[PWA] New content available, refresh to update.");
+    },
+    onOfflineReady() {
+      console.log("[PWA] App ready to work offline.");
+    },
+  });
+}
 
 const queryClient = new QueryClient();
 

@@ -43,7 +43,7 @@
 - [x] Build form auto-fill preview page per government form (DTI, Barangay, BIR 1901)
 - [x] Generate print-ready content with pre-populated fields
 - [x] "I-download" button for each form
-- [ ] Works offline after generation (PWA stretch goal — not yet implemented, would need service worker + cache strategy)
+- [x] Works offline after generation (PWA with vite-plugin-pwa, service worker auto-caches app shell + API responses via NetworkFirst strategy)
 
 ## Phase 7: Grant & Livelihood Matching (Feature 04)
 - [x] Auto-check user profile against LGU grants, DOLE programs, Negosyo Center funds
