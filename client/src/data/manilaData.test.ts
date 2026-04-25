@@ -59,4 +59,44 @@ describe("manilaData schema integrity", () => {
       expect(o.id).toMatch(/^[a-z0-9_]+$/);
     }
   });
+
+  it("every Office id is unique", () => {
+    const ids = manilaData.offices.map((o) => o.id);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+});
+
+describe("findDistrict range boundaries", () => {
+  it("locks Tondo upper boundary", () => {
+    expect(findDistrict("Brgy 267")).toBe("Tondo");
+  });
+
+  it("locks San Nicolas lower boundary", () => {
+    expect(findDistrict("Brgy 268")).toBe("San Nicolas");
+  });
+
+  it("locks San Nicolas upper boundary", () => {
+    expect(findDistrict("Brgy 286")).toBe("San Nicolas");
+  });
+
+  it("locks Binondo lower boundary", () => {
+    expect(findDistrict("Brgy 287")).toBe("Binondo");
+  });
+
+  it("locks Binondo upper boundary", () => {
+    expect(findDistrict("Brgy 295")).toBe("Binondo");
+  });
+
+  it("locks Sampaloc range mid-point", () => {
+    expect(findDistrict("Brgy 500")).toBe("Sampaloc");
+  });
+
+  it("returns null for an unmapped barangay number with no district hint", () => {
+    expect(findDistrict("Brgy 850")).toBeNull();
+  });
+
+  it("rejects barangay numbers above 897", () => {
+    expect(findDistrict("Brgy 898")).toBeNull();
+    expect(findDistrict("Brgy 1000")).toBeNull();
+  });
 });
