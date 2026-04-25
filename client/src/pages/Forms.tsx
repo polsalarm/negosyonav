@@ -334,6 +334,13 @@ function FormCard(props: {
     ? tpl.fieldsSchema.filter((f) => valueOf(f.name).trim()).length
     : 0;
   const total = tpl?.fieldsSchema.length ?? summary.fieldCount;
+  const requiredFields = tpl?.fieldsSchema.filter((f) => f.required) ?? [];
+  const requiredFilled = requiredFields.filter((f) =>
+    valueOf(f.name).trim(),
+  ).length;
+  const requiredTotal = requiredFields.length;
+  const missingRequired = requiredTotal - requiredFilled;
+  const allRequiredFilled = missingRequired === 0;
 
   return (
     <motion.div
@@ -368,6 +375,24 @@ function FormCard(props: {
                   }`}
                 >
                   {filledCount}/{total} filled
+                </span>
+              )}
+              {tpl && requiredTotal > 0 && (
+                <span
+                  className={`text-[10px] font-[var(--font-mono)] px-2 py-0.5 rounded-full uppercase tracking-wider ${
+                    allRequiredFilled
+                      ? "text-success bg-success/10"
+                      : "text-destructive bg-destructive/10"
+                  }`}
+                  title={
+                    allRequiredFilled
+                      ? "Lahat ng required, kompleto"
+                      : `${missingRequired} required na kulang`
+                  }
+                >
+                  {allRequiredFilled
+                    ? "✓ required"
+                    : `${missingRequired} required missing`}
                 </span>
               )}
             </div>
@@ -437,17 +462,41 @@ function FormCard(props: {
                     )}
                   </div>
 
+                  {!allRequiredFilled && (
+                    <div className="mb-3 px-3 py-2 rounded-lg bg-destructive/10 border border-destructive/30 text-xs text-destructive flex items-start gap-2">
+                      <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                      <span>
+                        <strong>{missingRequired}</strong> required na field ang
+                        kulang. Kailangan punan bago mag-download.
+                      </span>
+                    </div>
+                  )}
+
                   <div className="space-y-2">
                     {tpl.fieldsSchema.map((f) => {
                       const v = valueOf(f.name);
                       const isEmpty = !v.trim();
+                      const isRequiredMissing = f.required && isEmpty;
                       return (
                         <div key={f.name} className="flex items-start gap-2">
                           <div className="flex-1">
                             <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-1">
-                              {f.label}
+                              <span
+                                className={
+                                  f.required
+                                    ? "text-destructive font-semibold"
+                                    : ""
+                                }
+                              >
+                                {f.label}
+                              </span>
                               {f.required && (
-                                <span className="text-destructive">*</span>
+                                <span
+                                  className="text-[9px] uppercase tracking-wider text-destructive bg-destructive/10 px-1.5 py-0.5 rounded-full font-bold"
+                                  title="Kailangan ito"
+                                >
+                                  required
+                                </span>
                               )}
                               <button
                                 type="button"
@@ -465,15 +514,27 @@ function FormCard(props: {
                                 value={v}
                                 maxLength={f.maxLength ?? undefined}
                                 onChange={(e) => props.onChangeField(f.name, e.target.value)}
-                                className="w-full px-3 py-2 rounded-lg bg-muted border border-border text-base focus:outline-none focus:ring-2 focus:ring-teal/40 mt-0.5 min-h-11 font-[var(--font-body)]"
+                                className={`w-full px-3 py-2 rounded-lg bg-muted text-base focus:outline-none focus:ring-2 mt-0.5 min-h-11 font-[var(--font-body)] ${
+                                  isRequiredMissing
+                                    ? "border-2 border-destructive/60 focus:ring-destructive/40"
+                                    : "border border-border focus:ring-teal/40"
+                                }`}
                               />
                             ) : (
                               <p
-                                className={`text-sm mt-0.5 ${
-                                  isEmpty ? "text-muted-foreground/50 italic" : "text-earth-brown"
-                                } font-[var(--font-body)]`}
+                                className={`text-sm mt-0.5 font-[var(--font-body)] ${
+                                  isRequiredMissing
+                                    ? "text-destructive italic"
+                                    : isEmpty
+                                      ? "text-muted-foreground/50 italic"
+                                      : "text-earth-brown"
+                                }`}
                               >
-                                {isEmpty ? "(walang laman — punan sa Profile)" : v}
+                                {isEmpty
+                                  ? isRequiredMissing
+                                    ? "(kailangan punan — required)"
+                                    : "(walang laman — punan sa Profile)"
+                                  : v}
                               </p>
                             )}
                           </div>
@@ -501,8 +562,13 @@ function FormCard(props: {
                     </Button>
                     <Button
                       onClick={() => props.onDownload(fieldsAsValues())}
-                      disabled={props.isDownloading}
-                      className="flex-1 bg-teal hover:bg-teal/90 text-white rounded-xl font-[var(--font-display)] h-12 min-h-11"
+                      disabled={props.isDownloading || !allRequiredFilled}
+                      className="flex-1 bg-teal hover:bg-teal/90 text-white rounded-xl font-[var(--font-display)] h-12 min-h-11 disabled:opacity-50"
+                      title={
+                        allRequiredFilled
+                          ? "I-download ang PDF"
+                          : `Punan muna ang ${missingRequired} required field`
+                      }
                     >
                       {props.isDownloading ? (
                         <Loader2 className="w-4 h-4 mr-2 animate-spin" />
