@@ -4,7 +4,7 @@ import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
 import { invokeLLM } from "./_core/llm";
 import { z } from "zod";
-import { getCommunityPosts, createCommunityPost, voteOnPost, getUserVotes, createFeedback } from "./db";
+import { getCommunityPosts, createCommunityPost, voteOnPost, getUserVotes, createFeedback, getProfile, upsertProfile } from "./db";
 
 // Manila LGU context for the AI system prompt
 const MANILA_SYSTEM_PROMPT = `You are NegosyoNav, a friendly and knowledgeable AI assistant that helps Filipino micro-entrepreneurs navigate business registration in the City of Manila. You speak in Taglish (mix of Tagalog and English) naturally.
@@ -79,6 +79,23 @@ BEHAVIOR RULES:
 - Use peso sign (₱) for all amounts
 - Encourage them — "Kaya mo 'to!" spirit`;
 
+const PROFILE_EXTRACTION_PROMPT = `You are a data extraction assistant. Extract personal and business information from the chat conversation to fill a Negosyante Profile. Return ONLY a valid JSON object with these fields (use null for unknown):
+{
+  "firstName": string|null,
+  "lastName": string|null,
+  "middleName": string|null,
+  "businessName": string|null,
+  "businessType": string|null,
+  "businessActivity": string|null,
+  "bizBarangay": string|null,
+  "bizCity": string|null,
+  "mobileNumber": string|null,
+  "emailAddress": string|null,
+  "capitalization": number|null,
+  "numberOfEmployees": number|null
+}
+Only include fields that were explicitly mentioned in the conversation. Return valid JSON only, no markdown.`;
+
 export const appRouter = router({
   system: systemRouter,
   auth: router({
@@ -112,6 +129,162 @@ export const appRouter = router({
         const content = response.choices[0]?.message?.content;
         const text = typeof content === "string" ? content : Array.isArray(content) ? content.map(c => 'text' in c ? c.text : '').join('') : '';
         return { content: text };
+      }),
+
+    // Extract profile data from chat conversation
+    extractProfile: publicProcedure
+      .input(z.object({
+        messages: z.array(z.object({
+          role: z.enum(["user", "assistant"]),
+          content: z.string(),
+        })),
+      }))
+      .mutation(async ({ input }) => {
+        const chatSummary = input.messages.map(m => `${m.role}: ${m.content}`).join('\n');
+        const response = await invokeLLM({
+          messages: [
+            { role: "system", content: PROFILE_EXTRACTION_PROMPT },
+            { role: "user", content: chatSummary },
+          ],
+        });
+        const content = response.choices[0]?.message?.content;
+        const text = typeof content === "string" ? content : '';
+        try {
+          const cleaned = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+          return JSON.parse(cleaned);
+        } catch {
+          return {};
+        }
+      }),
+  }),
+
+  // Negosyante Profile
+  profile: router({
+    get: protectedProcedure.query(async ({ ctx }) => {
+      return getProfile(ctx.user.id);
+    }),
+
+    save: protectedProcedure
+      .input(z.object({
+        firstName: z.string().optional(),
+        middleName: z.string().optional(),
+        lastName: z.string().optional(),
+        suffix: z.string().optional(),
+        dateOfBirth: z.string().optional(),
+        gender: z.enum(["male", "female"]).optional(),
+        civilStatus: z.enum(["single", "married", "widowed", "legally_separated"]).optional(),
+        citizenship: z.string().optional(),
+        placeOfBirth: z.string().optional(),
+        mothersName: z.string().optional(),
+        fathersName: z.string().optional(),
+        tin: z.string().optional(),
+        philsysId: z.string().optional(),
+        mobileNumber: z.string().optional(),
+        phoneNumber: z.string().optional(),
+        emailAddress: z.string().optional(),
+        homeBuilding: z.string().optional(),
+        homeStreet: z.string().optional(),
+        homeBarangay: z.string().optional(),
+        homeCity: z.string().optional(),
+        homeProvince: z.string().optional(),
+        homeRegion: z.string().optional(),
+        homeZipCode: z.string().optional(),
+        businessName: z.string().optional(),
+        businessNameOption2: z.string().optional(),
+        businessNameOption3: z.string().optional(),
+        businessType: z.string().optional(),
+        businessActivity: z.string().optional(),
+        territorialScope: z.enum(["barangay", "city", "regional", "national"]).optional(),
+        bizBuilding: z.string().optional(),
+        bizStreet: z.string().optional(),
+        bizBarangay: z.string().optional(),
+        bizCity: z.string().optional(),
+        bizProvince: z.string().optional(),
+        bizRegion: z.string().optional(),
+        bizZipCode: z.string().optional(),
+        capitalization: z.number().optional(),
+        expectedAnnualSales: z.enum(["micro", "small", "medium", "large"]).optional(),
+        numberOfEmployees: z.number().optional(),
+        preferTaxOption: z.enum(["graduated", "eight_percent"]).optional(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        return upsertProfile(ctx.user.id, input);
+      }),
+  }),
+
+  // Grant Matching
+  grants: router({
+    check: publicProcedure
+      .input(z.object({
+        capitalization: z.number().optional(),
+        businessType: z.string().optional(),
+        numberOfEmployees: z.number().optional(),
+      }).optional())
+      .query(({ input }) => {
+        const grants: Array<{
+          id: string;
+          name: string;
+          eligible: boolean;
+          reason: string;
+          benefits: string[];
+          agency: string;
+          whereToApply: string;
+        }> = [];
+
+        const cap = input?.capitalization ?? 0;
+        const employees = input?.numberOfEmployees ?? 0;
+
+        // BMBE
+        grants.push({
+          id: "bmbe",
+          name: "BMBE Registration (Barangay Micro Business Enterprise)",
+          eligible: cap <= 3000000,
+          reason: cap <= 3000000
+            ? `Total assets ₱${cap.toLocaleString()} is within ₱3M BMBE threshold`
+            : `Total assets ₱${cap.toLocaleString()} exceeds ₱3M BMBE threshold`,
+          benefits: [
+            "Income tax exemption on business income",
+            "Minimum wage law exemption",
+            "Local tax and permit fee reductions",
+            "Priority access to credit from banks",
+            "Free training from DTI, TESDA, DOST",
+          ],
+          agency: "Manila City Treasurer's Office / DTI",
+          whereToApply: "Manila City Treasurer's Office, Manila City Hall",
+        });
+
+        // DOLE DILP
+        grants.push({
+          id: "dole_dilp",
+          name: "DOLE Kabuhayan Program (DILP)",
+          eligible: true,
+          reason: "Open to self-employed, displaced workers, women, youth, PWDs, senior citizens",
+          benefits: [
+            "Individual Starter Kit / Nego-Kart up to ₱20,000",
+            "Group grants from ₱250,000 to ₱1,000,000",
+          ],
+          agency: "Department of Labor and Employment (DOLE)",
+          whereToApply: "DOLE NCR Field Office",
+        });
+
+        // SB Corp
+        grants.push({
+          id: "sbcorp",
+          name: "SB Corp Micro-Financing",
+          eligible: cap > 0,
+          reason: cap > 0
+            ? "For existing MSMEs looking to expand"
+            : "Requires an existing business with capitalization",
+          benefits: [
+            "Loan from ₱50,000 to ₱3,000,000",
+            "0% interest for the first 12 months",
+            "Up to 3 years payable with 6-month grace period",
+          ],
+          agency: "Small Business Corporation (DTI)",
+          whereToApply: "SB Corp (sbcorp.gov.ph)",
+        });
+
+        return grants;
       }),
   }),
 
@@ -156,6 +329,44 @@ export const appRouter = router({
     myVotes: protectedProcedure
       .query(async ({ ctx }) => {
         return getUserVotes(ctx.user.id);
+      }),
+  }),
+
+  // Smart Form Auto-fill + PDF Generation
+  forms: router({
+    generatePdf: protectedProcedure
+      .input(z.object({
+        formId: z.string(),
+        fields: z.record(z.string(), z.string()),
+      }))
+      .mutation(async ({ input }) => {
+        // Generate a simple text-based PDF content as base64
+        // In production, this would use a proper PDF library
+        const formTitles: Record<string, string> = {
+          dti_form: "DTI Business Name Registration Form (FM-BN-01)",
+          barangay_clearance: "Barangay Business Clearance Application",
+          bir_1901: "BIR Form 1901 — Application for Registration",
+        };
+        const title = formTitles[input.formId] || input.formId;
+        
+        // Build a simple text representation for the PDF
+        let textContent = `${title}\n${'='.repeat(60)}\n\n`;
+        textContent += `Generated by NegosyoNav | Date: ${new Date().toLocaleDateString('en-PH')}\n\n`;
+        
+        for (const [key, value] of Object.entries(input.fields)) {
+          const label = key.replace(/_/g, ' ').replace(/^(dti|bir|brgy)\s/, '').toUpperCase();
+          textContent += `${label}: ${value || '(blank)'}\n`;
+        }
+        
+        textContent += `\n${'='.repeat(60)}\n`;
+        textContent += `IMPORTANT: This is a pre-filled reference document.\n`;
+        textContent += `Please transfer the information to the official government form.\n`;
+        textContent += `Official DTI form: bnrs.dti.gov.ph\n`;
+        textContent += `Official BIR form: bir.gov.ph\n`;
+        
+        // Encode as base64
+        const pdfContent = Buffer.from(textContent).toString('base64');
+        return { pdfContent, formId: input.formId };
       }),
   }),
 

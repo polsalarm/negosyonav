@@ -1,6 +1,6 @@
 import { eq, desc, and, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users, communityPosts, InsertCommunityPost, postVotes, feedback, InsertFeedback } from "../drizzle/schema";
+import { InsertUser, users, communityPosts, InsertCommunityPost, postVotes, feedback, InsertFeedback, negosyanteProfiles, InsertNegosyanteProfile } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -160,6 +160,30 @@ export async function getUserVotes(userId: number) {
   const db = await getDb();
   if (!db) return [];
   return db.select().from(postVotes).where(eq(postVotes.userId, userId));
+}
+
+// ===== Negosyante Profiles =====
+
+export async function getProfile(userId: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const result = await db.select().from(negosyanteProfiles).where(eq(negosyanteProfiles.userId, userId)).limit(1);
+  return result.length > 0 ? result[0] : null;
+}
+
+export async function upsertProfile(userId: number, data: Partial<InsertNegosyanteProfile>) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  
+  const existing = await db.select().from(negosyanteProfiles).where(eq(negosyanteProfiles.userId, userId)).limit(1);
+  
+  if (existing.length > 0) {
+    await db.update(negosyanteProfiles).set(data).where(eq(negosyanteProfiles.userId, userId));
+    return { action: "updated" as const };
+  } else {
+    await db.insert(negosyanteProfiles).values({ ...data, userId });
+    return { action: "created" as const };
+  }
 }
 
 // ===== Feedback =====

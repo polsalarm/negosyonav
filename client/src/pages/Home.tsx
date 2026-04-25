@@ -70,10 +70,15 @@ export default function Home() {
 
       const response = await chatMutation.mutateAsync({ messages: chatHistory });
 
-      setMessages((prev) => [
-        ...prev,
-        { role: "assistant", content: response.content },
-      ]);
+      const allMessages = [
+        ...updatedMessages,
+        { role: "assistant" as const, content: response.content },
+      ];
+      setMessages(allMessages);
+      // Persist chat history for profile extraction
+      sessionStorage.setItem('negosyonav_chat_history', JSON.stringify(
+        allMessages.map(m => ({ role: m.role, content: m.content }))
+      ));
       setRoadmapReady(true);
     } catch (error) {
       setMessages((prev) => [
@@ -176,7 +181,7 @@ export default function Home() {
       )}
 
       {/* Chat Area */}
-      <div className="flex-1 overflow-y-auto pb-44">
+      <div className="flex-1 overflow-y-auto pb-56">
         <div className="container max-w-2xl py-4 space-y-4">
           <AnimatePresence>
             {messages.map((msg, i) => (
@@ -253,7 +258,7 @@ export default function Home() {
       </div>
 
       {/* Sticky Chat Input */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-border z-50">
+      <div className="fixed bottom-16 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-border z-40">
         <div className="container max-w-2xl py-3">
           {/* Quick suggestions */}
           {messages.length <= 1 && (

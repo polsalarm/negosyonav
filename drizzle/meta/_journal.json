@@ -15,6 +15,13 @@
       "when": 1777101244903,
       "tag": "0001_chilly_ricochet",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1777104245917,
+      "tag": "0002_clean_jasper_sitwell",
+      "breakpoints": true
     }
   ]
 }
