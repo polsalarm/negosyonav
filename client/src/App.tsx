@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/NotFound";
@@ -90,13 +91,41 @@ function BottomNav() {
   );
 }
 
+function ScrollToTop() {
+  const [location] = useLocation();
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [location]);
+  return null;
+}
+
+function useAutoHideScrollbars() {
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const onScroll = () => {
+      document.body.classList.add("is-scrolling");
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => {
+        document.body.classList.remove("is-scrolling");
+      }, 800);
+    };
+    window.addEventListener("scroll", onScroll, { capture: true, passive: true });
+    return () => {
+      window.removeEventListener("scroll", onScroll, { capture: true });
+      if (timer) clearTimeout(timer);
+    };
+  }, []);
+}
+
 function App() {
+  useAutoHideScrollbars();
   return (
     <ErrorBoundary>
       <ThemeProvider defaultTheme="light">
         <AuthProvider>
           <TooltipProvider>
             <Toaster />
+            <ScrollToTop />
             <Router />
             <BottomNav />
           </TooltipProvider>
