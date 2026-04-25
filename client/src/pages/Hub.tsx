@@ -205,7 +205,7 @@ export default function Hub() {
               <button
                 key={value}
                 onClick={() => setSelectedCategory(value)}
-                className={`shrink-0 flex items-center gap-1.5 text-sm font-semibold px-4 py-2.5 rounded-full transition-all min-h-[44px] ${
+                className={`shrink-0 flex items-center gap-1.5 text-xs font-semibold px-4 py-2.5 rounded-full transition-all min-h-[44px] ${
                   selectedCategory === value
                     ? "bg-community text-white shadow-sm"
                     : "bg-white text-muted-foreground border border-border hover:border-community/30 hover:text-community"
