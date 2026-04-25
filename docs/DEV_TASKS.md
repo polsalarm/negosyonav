@@ -12,7 +12,7 @@ User-flagged items folded into the tracks below. Priority overrides Section 5's 
 
 **HIGH**
 - Chatbot integration verified end-to-end → **Track L** (new).
-- First-visit must land on signup, post-signup must route to Profile → **Track M** (new).
+- First-visit must land on signup, post-signup must route to Profile → **Track M** (✅ done 2026-04-25).
 - PDF downloader + form templates broken → **Track A** (already in plan, raised to top of HIGH).
 - Map integrated *inside* roadmap steps (not standalone /places only) → **Track N** (new).
 - Per-step report/feedback that also posts to Negosyante Hub → **Track O** (new).
@@ -29,7 +29,7 @@ User-flagged items folded into the tracks below. Priority overrides Section 5's 
 |---|---|---|---|
 | 01 | Taglish chat intake | Working | `client/src/pages/Home.tsx`, `components/AIChatBox.tsx`, `server/routers.ts ai.chat` |
 | 02 | Lakad Roadmap (location-aware) | Manila City only — hardcoded | `pages/Roadmap.tsx`, `client/src/data/manilaData.ts` |
-| 03 | Form auto-fill + "PDF" download (MVP anchor) | Partial — outputs base64 of plain text labelled `.pdf`, not real PDF | `pages/Forms.tsx`, `routers.ts forms.generatePdf` |
+| 03 | Form auto-fill + "PDF" download (MVP anchor) | Working — dynamic template engine, real PDFs via pdf-lib (Track A done) | `pages/Forms.tsx`, `routers/forms.ts`, `forms/processTemplate.ts` |
 | 04 | Grant matching (BMBE / DOLE / SB Corp) | Working — pure logic, no DB | `pages/Grants.tsx`, `routers.ts grants.check` |
 | 05 | Negosyante Hub (posts + votes) | Working — no comments, no contextual surfacing in roadmap | `pages/Hub.tsx`, `routers.ts community.*`, `db.ts` |
 | 06 | Time-based planner | Working — static logic | `pages/Planner.tsx` |
@@ -95,15 +95,20 @@ After 0 merges, every track below edits its own files only.
 
 Each track lists owned files. Two devs on different tracks should not collide.
 
-### Track A — Real PDF generation (MVP anchor fix) — **HIGH**
-**Owner files:** `server/routers/forms.ts`, `server/pdf/` (new), `client/src/pages/Forms.tsx`, `package.json` (add `pdf-lib`).
+### Track A — Real PDF generation [DONE — 2026-04-25]
 
-- A.1 Add `pdf-lib` dependency.
-- A.2 Build `server/pdf/dtiForm.ts`, `barangayClearance.ts`, `bir1901.ts`. Each exports `render(fields): Promise<Uint8Array>` that draws onto a real form template (start with from-scratch layout matching the official field labels; later swap to overlay on scanned official PDF).
-- A.3 Rewrite `forms.generatePdf` to dispatch on `formId` and return `{ pdfContent: base64, contentType: "application/pdf" }`.
-- A.4 `Forms.tsx`: drop the byte-array dance, just `atob` → `Blob({ type: "application/pdf" })`. Verify download opens in a real PDF viewer.
-- A.5 Add Vitest unit tests in `server/pdf/*.test.ts` asserting valid PDF magic bytes (`%PDF-`).
-- A.6 Confirm a downloaded PDF opens in Chrome PDF viewer + Adobe Reader on a real device (current `.pdf` is plain text and fails — this is the user-reported "not working").
+Replaced by dynamic form autofill engine. See:
+- Spec: `docs/superpowers/specs/2026-04-25-dynamic-form-autofill-design.md`
+- Plan: `docs/superpowers/plans/2026-04-25-dynamic-form-autofill.md`
+
+Shipped: `formTemplates` Firestore collection + Firebase Storage blobs,
+Gemini PDF-direct AcroForm-ification pipeline, `pdf-lib` overlay + flatten,
+`forms` sub-router with `list`/`schema`/`generatePdf`/`preview`/
+`uploadTemplate`/`deleteTemplate`, `Forms.tsx` rewritten data-driven, seed
+script `pnpm seed:templates`. Catalog seeding pending (run once against
+shared Firebase). Note: `template/Business Name Registration Application
+Forms.pdf` is a text-stub placeholder, not a real PDF — replace with the
+official DTI BNRS PDF before seeding `system_dti_bn`.
 
 ### Track B — Roadmap progress persistence + step-failed nudge
 **Owner files:** `server/routers/progress.ts` (new in Track 0), `server/db.ts` (append `roadmapProgress` collection helpers), `client/src/pages/Roadmap.tsx`, `client/src/hooks/useRoadmapProgress.ts` (new).
@@ -193,16 +198,16 @@ Today the chat exists on `/` but suggestion buttons, profile-extraction round-tr
 - L.4 Add a floating chat launcher (`<ChatFab />`) visible on `/roadmap`, `/forms`, `/grants` so the assistant is reachable mid-task. Single new component; routes only mount it. No conflict with other tracks.
 - L.5 Add a Vitest integration test that calls `appRouter.createCaller(ctx).ai.chat({ messages: [...] })` against a mocked `invokeLLM` and asserts non-empty `content`.
 
-### Track M — Auth gate + post-signup → Profile flow — **HIGH**
-**Owner files:** `client/src/App.tsx`, `client/src/pages/Login.tsx`, `client/src/_core/hooks/useAuth.ts`, `client/src/pages/Profile.tsx` (first-time banner only).
+### Track M — Auth gate + post-signup → Profile flow — ✅ done 2026-04-25
+**Owner files:** `client/src/App.tsx`, `client/src/pages/Login.tsx`, `client/src/contexts/AuthContext.tsx`, `client/src/components/RequireAuth.tsx`, `client/src/components/OnboardingGate.tsx`, `client/src/pages/Onboarding.tsx`.
 
-User report: "not asking me to register" + "after signing up, direct to profile page". Current `Login.tsx` already supports both modes; the bug is that nothing forces unauthenticated users to it.
+User report: "not asking me to register" + "after signing up, direct to profile page". Implementation diverged from spec on M.3/M.4: instead of a Profile-banner approach, shipped a dedicated full-screen `/onboarding` wizard (commit `3e95638`) gated by `OnboardingGate` reading `auth.me.onboardingCompletedAt`. Better UX for first-fill — wizard owns required-field collection, Profile.tsx stays the returning-user edit surface (Track Q).
 
-- M.1 In `App.tsx`, wrap `Router` in an `<AuthGate>` that, when `useAuth()` resolves to `isAuthenticated === false`, redirects to `/login` for any path except `/login` and `/404`. Loading state shows `DashboardLayoutSkeleton`.
-- M.2 `Login.tsx`: default `mode` to `"signup"` instead of `"signin"` (signup is the friction point we want to remove). Read `?mode=signin` query string to override.
-- M.3 On successful **signup**, call `auth.syncUser` then `navigate("/profile?onboarding=1")`. On successful **signin**, keep current `navigate("/")`.
-- M.4 `Profile.tsx`: if `?onboarding=1`, render a top banner ("Punan natin ang profile mo para ma-pre-fill ang DTI/BIR forms") and scroll to the first empty required field. Banner dismissible; flag stored in `localStorage`.
-- M.5 Sanity: `BottomNav` already hides on `/login` — leave alone. Verify after M.1 that no auth-gated tRPC call fires before login.
+- M.1 `RequireAuth` wraps `Router` in `App.tsx`; redirects unauth to `/login` (except `/login`, `/404`); loading spinner — ✅ done
+- M.2 `Login.tsx`: default `mode` flipped to `"signup"`; reads `?mode=signin` to override — ✅ done 2026-04-25
+- M.3 `AuthContext` auto-calls `auth.syncUser` on fresh sign-in; `OnboardingGate` routes new users to `/onboarding` — ✅ done (different path from spec; same intent)
+- M.4 Replaced banner-in-Profile with dedicated `/onboarding` full-screen wizard — ✅ done
+- M.5 tRPC consumers mount inside `RequireAuth`; only `syncUser` fires post-auth — ✅ done
 
 ### Track N — Map embedded inside roadmap steps — **HIGH**
 **Owner files:** `client/src/pages/Roadmap.tsx`, `client/src/components/StepOfficeCard.tsx` (new), `client/src/data/lgu/manila.ts` (post-Track-0; add `step.offices: OfficeRef[]`), `client/src/components/Map.tsx` (reused, no edits needed).
