@@ -5,7 +5,7 @@ description: Use this skill EVERY time the user asks to add, build, implement, f
 
 # feature-flow
 
-Workflow skill for the NegosyoNav hackathon. Anchors every feature/fix to `docs/DEV_TASKS.md` so parallel devs don't step on each other. Five phases: validate → explore → approaches → implement → update tracker.
+Workflow skill for the NegosyoNav hackathon. Anchors every feature/fix to `docs/DEV_TASKS.md` so parallel devs don't step on each other. Phases: validate → brainstorm gate (new features) → explore → approaches → implement → update tracker.
 
 ## Why this skill exists
 
@@ -30,6 +30,30 @@ Then check:
 - **Section 2 conflict-zone map.** Note files that other tracks may also be editing this week.
 
 Output one line: `Track <id.sub> — <HIGH|LOW|untagged> — owner files: <list>` plus any blocker notes. Keep it under 5 lines total — the user has the doc, you don't need to recap it.
+
+## Phase 1.5 — Brainstorm gate (new features only)
+
+Before exploring code for a **new feature** (not a bugfix, not a scoped sub-item already fully spec'd in `docs/DEV_TASKS.md`), ASK the user whether to invoke `/brainstorming` first.
+
+Trigger when the request is:
+- a new track or new sub-item not yet enumerated in the doc, OR
+- an existing bullet whose intent/UX/scope is ambiguous (e.g., "add geolocation to Places" with no spec), OR
+- any user phrasing like "add", "build", "implement", "ship", "wire up" a capability that does not yet exist.
+
+Skip when:
+- bugfix on existing behavior,
+- doc-only edits,
+- the sub-item in `docs/DEV_TASKS.md` already pins requirements + UX + acceptance,
+- user explicitly says "skip brainstorming" / "just do it" / "go".
+
+Output one line, then wait:
+
+```
+New feature detected — run /brainstorming first to lock intent + UX? (y / skip)
+```
+
+If `y` → invoke the `brainstorming` skill, then resume at Phase 2 with its output as input.
+If `skip` → proceed to Phase 2 directly.
 
 ## Phase 2 — Explore the codebase (scoped, fast)
 
