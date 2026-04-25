@@ -285,11 +285,11 @@ export function OfficeMapCard({ office }: OfficeMapCardProps) {
       {/* Action bar */}
       <div className="p-4 space-y-3">
         {state.kind === "idle" && (
-          <div className="flex gap-2">
+          <div className="flex flex-col gap-2 sm:flex-row">
             <Button
               onClick={handleGetDirections}
               disabled={state.kind !== "idle"}
-              className="flex-1 bg-teal hover:bg-teal/90 text-white rounded-xl min-h-11"
+              className="w-full sm:flex-1 bg-teal hover:bg-teal/90 text-white rounded-xl min-h-11"
             >
               <Navigation className="w-4 h-4 mr-2" />
               Get Directions
@@ -297,7 +297,7 @@ export function OfficeMapCard({ office }: OfficeMapCardProps) {
             <Button
               asChild
               variant="outline"
-              className="rounded-xl border-teal/30 text-teal min-h-11"
+              className="w-full sm:w-auto rounded-xl border-teal/30 text-teal min-h-11"
             >
               <a href={externalMaps} target="_blank" rel="noopener noreferrer">
                 <ExternalLink className="w-4 h-4 mr-1" />
