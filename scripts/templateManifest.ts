@@ -11,17 +11,8 @@ export type ManifestEntry = {
 };
 
 export const TEMPLATE_MANIFEST: ManifestEntry[] = [
-  {
-    filename: "Business Name Registration Application Forms.pdf",
-    formId: "dti_bn",
-    templateId: "system_dti_bn",
-    label: "DTI Business Name Registration",
-    labelTl: "Pagpaparehistro ng Pangalan ng Negosyo (DTI)",
-    agency: "Department of Trade and Industry",
-    roadmapStep: 1,
-    description: "Apply for a DTI Business Name Certificate (sole proprietor).",
-    flattenOnDownload: true,
-  },
+  // NOTE: DTI BN Registration form removed pending official PDF.
+  // Drop file into template/ and re-add manifest entry to seed.
   {
     filename: "BUSINESS CLEARANCE APPLICATION FORM - Barangay-Bel-Air.pdf",
     formId: "barangay_clearance",

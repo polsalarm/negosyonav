@@ -106,9 +106,9 @@ Gemini PDF-direct AcroForm-ification pipeline, `pdf-lib` overlay + flatten,
 `forms` sub-router with `list`/`schema`/`generatePdf`/`preview`/
 `uploadTemplate`/`deleteTemplate`, `Forms.tsx` rewritten data-driven, seed
 script `pnpm seed:templates`. Catalog seeding pending (run once against
-shared Firebase). Note: `template/Business Name Registration Application
-Forms.pdf` is a text-stub placeholder, not a real PDF — replace with the
-official DTI BNRS PDF before seeding `system_dti_bn`.
+shared Firebase). Catalog covers 12 forms; DTI BN Registration removed
+from manifest pending official PDF — drop file into `template/` and
+re-add manifest entry in `scripts/templateManifest.ts` to seed.
 
 ### Track B — Roadmap progress persistence + step-failed nudge
 **Owner files:** `server/routers/progress.ts` (new in Track 0), `server/db.ts` (append `roadmapProgress` collection helpers), `client/src/pages/Roadmap.tsx`, `client/src/hooks/useRoadmapProgress.ts` (new).
